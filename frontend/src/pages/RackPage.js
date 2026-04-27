@@ -10,13 +10,12 @@ function RackPage() {
   const [devices, setDevices] = useState([]);
   const [racks, setRacks] = useState([]);
   const [selectedSite, setSelectedSite] = useState('전체');
-  const [newRackNumber, setNewRackNumber] = useState('');
-  const [newRackSite, setNewRackSite] = useState('본사');
   const [newRackTotalU, setNewRackTotalU] = useState(42);
   const [editingRack, setEditingRack] = useState(null);
   const [editForm, setEditForm] = useState({ rack_number: '', site: '본사', total_u: 42 });
   const [editError, setEditError] = useState(null);
   const [showAddRack, setShowAddRack] = useState(false);
+const [addRackTargetSite, setAddRackTargetSite] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -34,12 +33,11 @@ function RackPage() {
 
 
   const handleAddRack = async () => {
-    const number = parseInt(newRackNumber);
-    if (!number) return alert('랙 번호를 입력해주세요.');
-    const exists = racks.some((r) => r.rack_number === number && r.site === newRackSite);
-    if (exists) return alert('해당 사이트에 이미 존재하는 랙 번호입니다.');
-    await createRack({ rack_number: number, site: newRackSite, total_u: parseInt(newRackTotalU) });
-    setNewRackNumber('');
+    const siteRacks = racks.filter((r) => r.site === addRackTargetSite);
+    const nextNumber = siteRacks.length > 0
+      ? Math.max(...siteRacks.map((r) => r.rack_number)) + 1
+      : 1;
+    await createRack({ rack_number: nextNumber, site: addRackTargetSite, total_u: parseInt(newRackTotalU) });
     setShowAddRack(false);
     fetchAll();
   };
@@ -110,18 +108,19 @@ function RackPage() {
             ))}
           </div>
         </div>
-        <div className="flex items-center">
-          {[{ label: '랙 실장도', path: '/' }, { label: '장비 관리', path: '/devices' }].map((tab) => (
+        <div className="flex items-center p-1 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
+          {[{ label: '랙 실장도', path: '/' }, { label: '장비 리스트', path: '/devices' }].map((tab) => (
             <button
               key={tab.path}
               onClick={() => navigate(tab.path)}
-              className="px-5 py-2 text-sm font-medium transition relative"
-              style={{ color: 'white' }}
+              className="px-4 py-1.5 rounded-md text-sm font-medium transition-all"
+              style={{
+                backgroundColor: tab.path === '/' ? 'white' : 'transparent',
+                color: tab.path === '/' ? '#003DA5' : 'rgba(255,255,255,0.7)',
+                minWidth: '80px',
+              }}
             >
               {tab.label}
-              {tab.path === '/' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-yellow-400 rounded-full"></div>
-              )}
             </button>
           ))}
         </div>
@@ -130,47 +129,49 @@ function RackPage() {
       {/* 랙 추가 모달 */}
       {showAddRack && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-96">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">+ 랙 추가</h3>
-            <div className="flex flex-col gap-3">
-              <div>
-                <label className="text-sm font-medium text-gray-600 mb-1 block">사이트</label>
-                <select
-                  value={newRackSite}
-                  onChange={(e) => setNewRackSite(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {SITES.map((site) => <option key={site} value={site}>{site}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600 mb-1 block">랙 번호</label>
-                <input
-                  type="number"
-                  value={newRackNumber}
-                  onChange={(e) => setNewRackNumber(e.target.value)}
-                  placeholder="예: 1"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600 mb-1 block">랙 크기 (U)</label>
-                <select
-                  value={newRackTotalU}
-                  onChange={(e) => setNewRackTotalU(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {[14, 18, 24, 36, 42, 48].map((u) => (
-                    <option key={u} value={u}>{u}U</option>
-                  ))}
-                </select>
-              </div>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-80">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-1 h-5 rounded-full" style={{ backgroundColor: '#003DA5' }}></div>
+              <h3 className="text-lg font-bold" style={{ color: '#003DA5' }}>랙 추가</h3>
             </div>
-            <div className="flex gap-2 mt-6">
-              <button onClick={handleAddRack} className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">
+            <p className="text-xs text-gray-400 mb-5 ml-3">
+              <span className="font-semibold text-gray-600">{addRackTargetSite}</span>에 새 랙을 추가합니다.
+            </p>
+            <label className="text-sm font-medium text-gray-600 mb-2 block">랙 크기 선택</label>
+            <div className="grid grid-cols-3 gap-2">
+              {[14, 18, 24, 36, 42, 48].map((u) => (
+                <button
+                  key={u}
+                  onClick={() => setNewRackTotalU(u)}
+                  className="py-2.5 rounded-xl text-sm font-semibold transition-all"
+                  style={{
+                    backgroundColor: parseInt(newRackTotalU) === u ? '#003DA5' : '#F4F6FA',
+                    color: parseInt(newRackTotalU) === u ? 'white' : '#555',
+                    transform: parseInt(newRackTotalU) === u ? 'scale(1.05)' : 'scale(1)',
+                    boxShadow: parseInt(newRackTotalU) === u ? '0 4px 12px rgba(0,61,165,0.25)' : 'none',
+                  }}
+                >
+                  {u}U
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 px-3 py-2 rounded-lg text-xs text-gray-500 flex items-center gap-1.5"
+              style={{ backgroundColor: '#F4F6FA' }}>
+              <span>🔢</span>
+              <span>랙 번호는 자동으로 부여됩니다.</span>
+            </div>
+            <div className="flex gap-2 mt-5">
+              <button
+                onClick={handleAddRack}
+                className="flex-1 text-white py-2.5 rounded-xl text-sm font-semibold transition hover:opacity-90"
+                style={{ backgroundColor: '#003DA5' }}
+              >
                 추가
               </button>
-              <button onClick={() => setShowAddRack(false)} className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition">
+              <button
+                onClick={() => setShowAddRack(false)}
+                className="flex-1 bg-gray-100 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-200 transition"
+              >
                 취소
               </button>
             </div>
@@ -203,7 +204,7 @@ function RackPage() {
                     </div>
                     <div className="flex-1 h-px bg-gray-200"></div>
                     <button
-                      onClick={() => { setNewRackSite(site); setShowAddRack(true); }}
+                      onClick={() => { setAddRackTargetSite(site); setNewRackTotalU(42); setShowAddRack(true); }}
                       className="text-white px-4 py-1.5 rounded-lg text-sm font-medium transition hover:opacity-90"
                       style={{ backgroundColor: '#003DA5' }}
                     >

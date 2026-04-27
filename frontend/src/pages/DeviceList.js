@@ -39,7 +39,7 @@ function DeviceList() {
 
   const NAV_TABS = [
     { label: '랙 실장도', path: '/' },
-    { label: '장비 관리', path: '/devices' },
+    { label: '장비 리스트', path: '/devices' },
   ];
 
   return (
@@ -51,15 +51,16 @@ function DeviceList() {
           <div className="w-px h-6 bg-white opacity-30"></div>
           <h1 className="text-lg font-bold tracking-wide text-white">IT 인프라 관리 시스템</h1>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center p-1 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
           {NAV_TABS.map((tab) => (
             <button
               key={tab.path}
               onClick={() => navigate(tab.path)}
-              className="px-4 py-2 rounded-lg text-sm font-medium transition"
+              className="px-4 py-1.5 rounded-md text-sm font-medium transition-all"
               style={{
-                backgroundColor: location.pathname === tab.path ? 'rgba(255,255,255,0.25)' : 'transparent',
-                color: 'white',
+                backgroundColor: location.pathname === tab.path ? 'white' : 'transparent',
+                color: location.pathname === tab.path ? '#003DA5' : 'rgba(255,255,255,0.7)',
+                minWidth: '80px',
               }}
             >
               {tab.label}

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://127.0.0.1:8000';
+const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
 
 export const getDevices = () => axios.get(`${API_URL}/devices/`);
 export const getDevice = (id) => axios.get(`${API_URL}/devices/${id}`);
