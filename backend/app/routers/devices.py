@@ -17,6 +17,7 @@ class DeviceCreate(BaseModel):
     maintenance_company: Optional[str] = None
     rack_id: Optional[int] = None
     site: Optional[str] = None
+    device_type: Optional[str] = '기타'
 
 # 장비 전체 조회
 @router.get("/")

@@ -22,3 +22,4 @@ class Device(Base):
     maintenance_company = Column(String)
     rack_id = Column(Integer)
     site = Column(String)
+    device_type = Column(String, default='기타')

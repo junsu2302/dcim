@@ -15,6 +15,7 @@ function RackPage() {
   const [newRackTotalU, setNewRackTotalU] = useState(42);
   const [editingRack, setEditingRack] = useState(null);
   const [editForm, setEditForm] = useState({ rack_number: '', site: '본사', total_u: 42 });
+  const [editError, setEditError] = useState(null);
   const [showAddRack, setShowAddRack] = useState(false);
   const navigate = useNavigate();
 
@@ -55,7 +56,17 @@ function RackPage() {
   const handleEditConfirm = async (rack) => {
     const number = parseInt(editForm.rack_number);
     if (!number) return alert('랙 번호를 입력해주세요.');
-    await updateRack(rack.id, { rack_number: number, site: editForm.site, total_u: parseInt(editForm.total_u) });
+    const newTotalU = parseInt(editForm.total_u);
+    const devicesInRack = devices.filter(d => d.rack_id === rack.id);
+    const outOfRange = devicesInRack.filter(d => (d.u_position + (d.u_size || 1) - 1) > newTotalU);
+    
+    if (outOfRange.length > 0) {
+      const names = outOfRange.map(d => `${d.name} (${d.u_position}U~${d.u_position + (d.u_size||1) - 1}U)`).join(', ');
+      setEditError(`${newTotalU}U로 줄일 수 없습니다. 범위를 벗어나는 장비가 있습니다: ${names}`);
+      return;
+    }
+    setEditError(null);
+    await updateRack(rack.id, { rack_number: number, site: editForm.site, total_u: newTotalU });
     setEditingRack(null);
     fetchAll();
   };
@@ -78,7 +89,7 @@ function RackPage() {
           <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition" onClick={() => navigate('/')}>
             <img src={require('../assets/header_logo.png')} alt="IBK시스템" style={{ height: '32px' }} />
             <div className="w-px h-6 bg-white opacity-30"></div>
-            <h1 className="text-lg font-bold tracking-wide text-white">DCIM</h1>
+            <h1 className="text-lg font-bold tracking-wide text-white">IT 인프라 관리 시스템</h1>
           </div>
           {/* Site 탭 */}
           <div className="flex gap-1 ml-6">
@@ -99,19 +110,20 @@ function RackPage() {
             ))}
           </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowAddRack(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
-          >
-            + 랙 추가
-          </button>
-          <button
-            onClick={() => navigate('/devices')}
-            className="bg-gray-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-600 transition"
-          >
-            📋 장비 목록
-          </button>
+        <div className="flex items-center">
+          {[{ label: '랙 실장도', path: '/' }, { label: '장비 관리', path: '/devices' }].map((tab) => (
+            <button
+              key={tab.path}
+              onClick={() => navigate(tab.path)}
+              className="px-5 py-2 text-sm font-medium transition relative"
+              style={{ color: 'white' }}
+            >
+              {tab.label}
+              {tab.path === '/' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-yellow-400 rounded-full"></div>
+              )}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -183,13 +195,20 @@ function RackPage() {
                   {/* Site 구분 헤더 */}
                   <div className="flex items-center gap-4 mb-4">
                     <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-8 bg-blue-500 rounded-full"></div>
+                      <div className="w-1.5 h-8 rounded-full" style={{ backgroundColor: '#003DA5' }}></div>
                       <h2 className="text-xl font-bold text-gray-800">{site}</h2>
-                      <span className="bg-blue-100 text-blue-600 text-sm font-medium px-3 py-0.5 rounded-full">
+                      <span className="text-sm font-medium px-3 py-0.5 rounded-full" style={{ backgroundColor: '#E8EEFF', color: '#003DA5' }}>
                         랙 {siteRacks.length}개
                       </span>
                     </div>
                     <div className="flex-1 h-px bg-gray-200"></div>
+                    <button
+                      onClick={() => { setNewRackSite(site); setShowAddRack(true); }}
+                      className="text-white px-4 py-1.5 rounded-lg text-sm font-medium transition hover:opacity-90"
+                      style={{ backgroundColor: '#003DA5' }}
+                    >
+                      + 랙 추가
+                    </button>
                   </div>
 
                   {/* 랙 카드들 */}
@@ -198,41 +217,10 @@ function RackPage() {
                       <div key={rack.id} className="flex flex-col gap-1">
                         {/* 랙 수정/삭제 */}
                         <div className="flex justify-end gap-2">
-                          {editingRack === rack.id ? (
-                            <div className="flex items-center gap-1">
-                              <select
-                                value={editForm.site}
-                                onChange={(e) => setEditForm({ ...editForm, site: e.target.value })}
-                                className="border border-gray-300 rounded px-2 py-1 text-xs"
-                              >
-                                {SITES.map((s) => <option key={s} value={s}>{s}</option>)}
-                              </select>
-                              <input
-                                type="number"
-                                value={editForm.rack_number}
-                                onChange={(e) => setEditForm({ ...editForm, rack_number: e.target.value })}
-                                className="border border-gray-300 rounded px-2 py-1 w-16 text-xs"
-                              />
-                              <select
-                                value={editForm.total_u}
-                                onChange={(e) => setEditForm({ ...editForm, total_u: e.target.value })}
-                                className="border border-gray-300 rounded px-2 py-1 text-xs"
-                              >
-                                {[14, 18, 24, 36, 42, 48].map((u) => (
-                                  <option key={u} value={u}>{u}U</option>
-                                ))}
-                              </select>
-                              <button onClick={() => handleEditConfirm(rack)} className="text-xs bg-yellow-400 text-white px-2 py-1 rounded hover:bg-yellow-500">확인</button>
-                              <button onClick={() => setEditingRack(null)} className="text-xs bg-gray-300 text-gray-700 px-2 py-1 rounded hover:bg-gray-400">취소</button>
-                            </div>
-                          ) : (
-                            <>
-                              <button onClick={() => { setEditingRack(rack.id); setEditForm({ rack_number: rack.rack_number, site: rack.site, total_u: rack.total_u || 42 }); }}
-                                className="text-xs text-yellow-500 hover:text-yellow-600">✏️ 수정</button>
-                              <button onClick={() => handleDeleteRack(rack)}
-                                className="text-xs text-red-400 hover:text-red-600">🗑️ 삭제</button>
-                            </>
-                          )}
+                          <button onClick={() => { setEditingRack(rack.id); setEditForm({ rack_number: rack.rack_number, site: rack.site, total_u: rack.total_u || 42 }); setEditError(null); }}
+                            className="text-xs text-yellow-500 hover:text-yellow-600 transition">✏️ 수정</button>
+                          <button onClick={() => handleDeleteRack(rack)}
+                            className="text-xs text-red-400 hover:text-red-600 transition">🗑️ 삭제</button>
                         </div>
                         <RackView key={`${rack.id}-${renderKey}`} rack={rack} devices={devices} allRacks={racks} allDevices={devices} onRefresh={fetchAll} />
                       </div>
@@ -244,6 +232,91 @@ function RackPage() {
           </div>
         )}
       </div>
+
+      {/* 랙 수정 모달 */}
+      {editingRack && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-96">
+            <h3 className="text-lg font-bold mb-1" style={{ color: '#003DA5' }}>🖥️ 랙 수정</h3>
+            <p className="text-xs text-gray-400 mb-5">랙 정보를 수정합니다.</p>
+
+            <div className="flex flex-col gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-600 mb-1 block">사이트</label>
+                <div className="flex gap-2">
+                  {SITES.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setEditForm({ ...editForm, site: s })}
+                      className="flex-1 py-2 rounded-lg text-sm font-medium transition"
+                      style={{
+                        backgroundColor: editForm.site === s ? '#003DA5' : '#F4F6FA',
+                        color: editForm.site === s ? 'white' : '#555',
+                      }}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-600 mb-1 block">랙 번호</label>
+                <input
+                  type="number"
+                  value={editForm.rack_number}
+                  onChange={(e) => setEditForm({ ...editForm, rack_number: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2"
+                  style={{ '--tw-ring-color': '#003DA5' }}
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-600 mb-1 block">랙 크기</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[14, 18, 24, 36, 42, 48].map((u) => (
+                    <button
+                      key={u}
+                      onClick={() => setEditForm({ ...editForm, total_u: u })}
+                      className="py-2 rounded-lg text-sm font-medium transition"
+                      style={{
+                        backgroundColor: editForm.total_u === u || parseInt(editForm.total_u) === u ? '#003DA5' : '#F4F6FA',
+                        color: editForm.total_u === u || parseInt(editForm.total_u) === u ? 'white' : '#555',
+                      }}
+                    >
+                      {u}U
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {editError && (
+              <div className="mt-4 px-4 py-3 rounded-xl text-sm font-medium text-white flex items-start gap-2"
+                style={{ backgroundColor: '#C62828' }}>
+                <span className="mt-0.5">⚠️</span>
+                <span>{editError}</span>
+              </div>
+            )}
+
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={() => handleEditConfirm(racks.find(r => r.id === editingRack))}
+                className="flex-1 text-white py-2.5 rounded-lg text-sm font-medium transition hover:opacity-90"
+                style={{ backgroundColor: '#003DA5' }}
+              >
+                저장
+              </button>
+              <button
+                onClick={() => { setEditingRack(null); setEditError(null); }}
+                className="flex-1 bg-gray-100 text-gray-600 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-200 transition"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

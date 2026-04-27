@@ -1,31 +1,78 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { createDevice, updateDevice, deleteDevice } from '../api/devices';
 
 const ITEM_TYPE = 'DEVICE';
+const DEVICE_TYPES = {
+  '보안': { bg: '#C62828', hover: '#B71C1C', light: '#FFEBEE' },
+  '네트워크': { bg: '#1565C0', hover: '#0D47A1', light: '#E3F2FD' },
+  '서버': { bg: '#2E7D32', hover: '#1B5E20', light: '#E8F5E9' },
+  '기타': { bg: '#6D4C41', hover: '#4E342E', light: '#EFEBE9' },
+};
+// 토스트 컴포넌트
+function Toast({ toasts }) {
+  return (
+    <div className="fixed top-6 right-6 z-[9999] flex flex-col gap-2">
+      {toasts.map((t) => (
+        <div
+          key={t.id}
+          className="flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white animate-fade-in"
+          style={{
+            backgroundColor: t.type === 'error' ? '#D32F2F' : t.type === 'success' ? '#2E7D32' : '#1565C0',
+            minWidth: '280px',
+            animation: 'slideIn 0.3s ease',
+          }}
+        >
+          <span>{t.type === 'error' ? '⚠️' : t.type === 'success' ? '✅' : 'ℹ️'}</span>
+          <span>{t.message}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave }) {
+// 토스트 훅
+function useToast() {
+  const [toasts, setToasts] = useState([]);
+
+  const showToast = useCallback((message, type = 'error') => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3000);
+  }, []);
+
+  return { toasts, showToast };
+}
+
+function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToast }) {
   const [form, setForm] = useState(
     slot?.device ? { ...slot.device } : {
       name: '', manufacturer: '', serial: '',
       u_position: slot?.u, u_size: String(slot?.dragSize || 1),
       introduced_date: '', maintenance_company: '',
-      rack_id: rack.id, site: rack.site,
+      rack_id: rack.id, site: rack.site, device_type: '기타',
     }
   );
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSave = async () => {
-    if (!form.name) return alert('장비명을 입력해주세요.');
-    if (!form.u_position) return alert('U위치를 입력해주세요.');
+    if (!form.name) return showToast('장비명을 입력해주세요.', 'error');
+    if (!form.u_position) return showToast('U위치를 입력해주세요.', 'error');
 
     const targetRackId = parseInt(form.rack_id);
     const uStart = parseInt(form.u_position);
     const uSize = parseInt(form.u_size) || 1;
     const uEnd = uStart + uSize - 1;
     const currentDeviceId = slot?.device?.id;
+
+    const targetRack = allRacks.find((r) => r.id === targetRackId);
+    const maxU = targetRack?.total_u || 42;
+
+    if (uEnd > maxU) return showToast(`랙 크기 초과! 이 랙은 ${maxU}U까지만 가능합니다.`, 'error');
 
     const conflicted = allDevices
       .filter((d) => d.rack_id === targetRackId && d.id !== currentDeviceId)
@@ -35,9 +82,8 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave }) {
         return uStart <= dEnd && uEnd >= dStart;
       });
 
-    if (conflicted) return alert('해당 U위치에 이미 다른 장비가 있습니다!');
+    if (conflicted) return showToast('해당 U위치에 이미 다른 장비가 있습니다!', 'error');
 
-    const targetRack = allRacks.find((r) => r.id === targetRackId);
     const payload = {
       ...form,
       rack_id: targetRackId,
@@ -49,20 +95,23 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave }) {
     try {
       if (slot?.device) {
         await updateDevice(slot.device.id, payload);
+        showToast('장비가 수정되었습니다.', 'success');
       } else {
         await createDevice(payload);
+        showToast('장비가 추가되었습니다.', 'success');
       }
       onSave();
       onClose();
     } catch (e) {
       const msg = e.response?.data?.detail || '저장 중 오류가 발생했습니다.';
-      alert(msg);
+      showToast(msg, 'error');
     }
   };
 
   const handleDelete = async () => {
     if (window.confirm('장비를 삭제하시겠습니까?')) {
       await deleteDevice(slot.device.id);
+      showToast('장비가 삭제되었습니다.', 'success');
       onSave();
       onClose();
     }
@@ -96,6 +145,16 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave }) {
           ))}
 
           <div className="flex items-center gap-3">
+            <label className="text-sm font-medium text-gray-600 w-28 flex-shrink-0">장비 구분</label>
+            <select name="device_type" value={form.device_type || '기타'} onChange={handleChange}
+              className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              {Object.keys(DEVICE_TYPES).map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-3">
             <label className="text-sm font-medium text-gray-600 w-28 flex-shrink-0">U사이즈</label>
             <select name="u_size" value={form.u_size} onChange={handleChange}
               className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -108,7 +167,7 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave }) {
               U위치 <span className="text-red-500">*</span>
             </label>
             <input type="number" name="u_position" value={form.u_position || ''} onChange={handleChange}
-              min="1" max="42"
+              min="1"
               className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -125,14 +184,14 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave }) {
 
           {selectedRack && (
             <div className="bg-blue-50 rounded-lg px-3 py-2 text-xs text-blue-600">
-              📍 {selectedRack.site} — RACK #{selectedRack.rack_number}
+              📍 {selectedRack.site} — RACK #{selectedRack.rack_number} ({selectedRack.total_u || 42}U)
             </div>
           )}
         </div>
 
         <div className="flex justify-between mt-6">
           <div className="flex gap-2">
-            <button onClick={handleSave} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition">저장</button>
+            <button onClick={handleSave} className="text-white px-4 py-2 rounded-lg text-sm transition hover:opacity-90" style={{ backgroundColor: '#003DA5' }}>저장</button>
             <button onClick={onClose} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-300 transition">취소</button>
           </div>
           {slot?.device && (
@@ -144,15 +203,11 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave }) {
   );
 }
 
-// 드래그 가능한 장비 슬롯
 function DraggableDevice({ device, size, u, onClick }) {
   const [{ isDragging }, drag] = useDrag(() => ({
     type: ITEM_TYPE,
-    item: () => ({ 
-      device: { 
-        ...device, 
-        u_size: parseInt(size) || 1,
-      },
+    item: () => ({
+      device: { ...device, u_size: parseInt(size) || 1, device_type: device.device_type || '기타' },
       size: parseInt(size) || 1,
     }),
     collect: (monitor) => ({ isDragging: monitor.isDragging() }),
@@ -165,37 +220,29 @@ function DraggableDevice({ device, size, u, onClick }) {
       style={{ opacity: isDragging ? 0.4 : 1, height: `${size * 34}px` }}
       className="relative bg-blue-50 border-b border-blue-100 cursor-grab hover:bg-blue-100 transition group flex flex-col"
     >
-      {/* U번호 각 행마다 표시 */}
       {Array.from({ length: size }, (_, i) => (
-        <div
-          key={i}
-          className="flex items-center px-2 gap-2"
-          style={{ height: '34px', flexShrink: 0 }}
-        >
+        <div key={i} className="flex items-center px-2 gap-2" style={{ height: '34px', flexShrink: 0 }}>
           <div className="text-xs text-gray-400 w-8 flex-shrink-0 font-mono">{u + i}U</div>
         </div>
       ))}
-      {/* 장비 블록 — 절대 위치로 U번호 옆에 오버레이 */}
       <div
-        className="absolute bg-blue-500 group-hover:bg-blue-600 text-white rounded px-2 py-1 text-xs font-medium flex justify-between items-center transition"
-        style={{
-          top: '4px',
-          bottom: '4px',
-          left: '48px',
-          right: '8px',
+        className="absolute text-white rounded px-2 py-1 text-xs font-medium flex justify-between items-center transition"
+        style={{ 
+          top: '4px', bottom: '4px', left: '48px', right: '8px',
+          backgroundColor: DEVICE_TYPES[device.device_type]?.bg || DEVICE_TYPES['기타'].bg
         }}
       >
         <span className="truncate">{device.name}</span>
-        <span className="text-blue-200 ml-1 flex-shrink-0">{size}U</span>
+        <span className="ml-1 flex-shrink-0 opacity-70">{size}U</span>
       </div>
     </div>
   );
 }
-// 드래그로 범위 선택
+
 function DragSelectSlot({ u, isSelected, isSelecting, onMouseDown, onMouseEnter, onDrop, allDevices, rackId, onClick }) {
   const [{ isOver, canDrop }, drop] = useDrop(() => ({
     accept: ITEM_TYPE,
-    drop: (item) => onDrop({...item.device, u_size: item.size}, u, rackId),
+    drop: (item) => onDrop({ ...item.device, u_size: item.size }, u, rackId),
     canDrop: (item) => {
       const uSize = parseInt(item.device.u_size) || 1;
       const uEnd = u + uSize - 1;
@@ -208,10 +255,7 @@ function DragSelectSlot({ u, isSelected, isSelecting, onMouseDown, onMouseEnter,
         });
       return !conflicted;
     },
-    collect: (monitor) => ({
-      isOver: monitor.isOver(),
-      canDrop: monitor.canDrop(),
-    }),
+    collect: (monitor) => ({ isOver: monitor.isOver(), canDrop: monitor.canDrop() }),
   }));
 
   let bg = 'bg-white hover:bg-green-50';
@@ -237,30 +281,52 @@ function DragSelectSlot({ u, isSelected, isSelecting, onMouseDown, onMouseEnter,
 }
 
 function RackView({ rack, devices, allRacks, allDevices, onRefresh }) {
-const [modal, setModal] = useState(null);
+  const [modal, setModal] = useState(null);
   const [dragStart, setDragStart] = useState(null);
   const [dragEnd, setDragEnd] = useState(null);
   const [isDragSelecting, setIsDragSelecting] = useState(false);
+  const { toasts, showToast } = useToast();
   const totalU = rack.total_u || 42;
 
   const selectedUs = dragStart && dragEnd
     ? Array.from({ length: Math.abs(dragEnd - dragStart) + 1 }, (_, i) => Math.min(dragStart, dragEnd) + i)
     : [];
 
-  const handleMouseDown = (u) => {
-    setDragStart(u);
-    setDragEnd(u);
-    setIsDragSelecting(true);
-  };
-
-  const handleMouseEnter = (u) => {
-    if (isDragSelecting) setDragEnd(u);
-  };
-
+  const handleMouseDown = (u) => { setDragStart(u); setDragEnd(u); setIsDragSelecting(true); };
+  const handleMouseEnter = (u) => { if (isDragSelecting) setDragEnd(u); };
   const handleMouseUp = () => {
     if (isDragSelecting && dragStart && dragEnd) {
       const uStart = Math.min(dragStart, dragEnd);
-      const uSize = Math.abs(dragEnd - dragStart) + 1;
+      const uEnd = Math.max(dragStart, dragEnd);
+      const uSize = uEnd - uStart + 1;
+
+      // 선택 범위 내 장비 충돌 체크
+      const conflicted = devices
+        .filter((d) => d.rack_id === rack.id)
+        .filter((d) => {
+          const dStart = parseInt(d.u_position);
+          const dEnd = dStart + (parseInt(d.u_size) || 1) - 1;
+          return uStart <= dEnd && uEnd >= dStart;
+        });
+
+      if (conflicted.length > 0) {
+        const names = conflicted.map(d => `${d.name}(${d.u_position}U)`).join(', ');
+        showToast(`선택 범위에 이미 장비가 있습니다: ${names}`, 'error');
+        setIsDragSelecting(false);
+        setDragStart(null);
+        setDragEnd(null);
+        return;
+      }
+
+      // 랙 크기 초과 체크
+      if (uEnd > totalU) {
+        showToast(`랙 크기(${totalU}U)를 초과하는 범위입니다!`, 'error');
+        setIsDragSelecting(false);
+        setDragStart(null);
+        setDragEnd(null);
+        return;
+      }
+
       setModal({ u: uStart, device: null, dragSize: uSize });
     }
     setIsDragSelecting(false);
@@ -269,22 +335,24 @@ const [modal, setModal] = useState(null);
   };
 
   const slotMap = {};
-  devices
-    .filter((d) => d.rack_id === rack.id)
-    .forEach((d) => {
-      const size = d.u_size || 1;
-      for (let i = 0; i < size; i++) {
-        slotMap[d.u_position + i] = { ...d, isStart: i === 0, size };
-      }
-    });
+  devices.filter((d) => d.rack_id === rack.id).forEach((d) => {
+    const size = d.u_size || 1;
+    for (let i = 0; i < size; i++) {
+      slotMap[d.u_position + i] = { ...d, isStart: i === 0, size };
+    }
+  });
 
   const rendered = new Set();
 
   const handleDrop = async (device, targetU, targetRackId) => {
-    console.log('드롭된 device:', device);
-    console.log('u_size:', device.u_size, 'size:', device.size);
-    const uSize = parseInt(device.u_size) || parseInt(device.size) || 1;
+    console.log('드롭 device_type:', device.device_type);
+    const uSize = parseInt(device.u_size) || 1;
     const uEnd = targetU + uSize - 1;
+
+    const targetRack = allRacks.find((r) => r.id === parseInt(targetRackId));
+    const maxU = targetRack?.total_u || 42;
+
+    if (uEnd > maxU) return showToast(`랙 크기 초과! 이 랙은 ${maxU}U까지만 가능합니다.`, 'error');
 
     const conflicted = allDevices
       .filter((d) => d.rack_id === targetRackId && d.id !== device.id)
@@ -294,9 +362,8 @@ const [modal, setModal] = useState(null);
         return targetU <= dEnd && uEnd >= dStart;
       });
 
-    if (conflicted) return alert('해당 U위치에 이미 다른 장비가 있습니다!');
+    if (conflicted) return showToast('해당 U위치에 이미 다른 장비가 있습니다!', 'error');
 
-    const targetRack = allRacks.find((r) => r.id === parseInt(targetRackId));
     await updateDevice(device.id, {
       name: device.name,
       manufacturer: device.manufacturer,
@@ -307,76 +374,82 @@ const [modal, setModal] = useState(null);
       maintenance_company: device.maintenance_company,
       rack_id: parseInt(targetRackId),
       site: targetRack?.site || device.site,
+      device_type: device.device_type || '기타',
     });
+    showToast('장비 위치가 변경되었습니다.', 'success');
     onRefresh();
   };
 
   return (
-    <div className="flex flex-col" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
-      <div className="rounded-2xl overflow-hidden shadow-lg border border-gray-200 w-72">
-        <div className="bg-gradient-to-r from-gray-800 to-gray-700 text-white px-4 py-3">
-          <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-0.5">{rack.site}</div>
-          <div className="text-xl font-bold tracking-wide">🖥️ RACK #{rack.rack_number}</div>
-          <div className="text-xs text-gray-400 mt-0.5">
-            {devices.filter((d) => d.rack_id === rack.id).length}개 장비 /
-            {' '}{totalU - devices.filter((d) => d.rack_id === rack.id).reduce((a, d) => a + (d.u_size || 1), 0)}U 여유
+    <>
+      <Toast toasts={toasts} />
+      <style>{`@keyframes slideIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }`}</style>
+      <div className="flex flex-col" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+        <div className="rounded-2xl overflow-hidden shadow-lg border border-gray-200 w-72">
+          <div className="text-white px-4 py-3" style={{ background: 'linear-gradient(135deg, #003DA5, #0055CC)' }}>
+            <div className="text-xs font-semibold uppercase tracking-widest mb-0.5 opacity-60">{rack.site}</div>
+            <div className="text-xl font-bold tracking-wide">🖥️ RACK #{rack.rack_number}</div>
+            <div className="text-xs mt-0.5 opacity-60">
+              {devices.filter((d) => d.rack_id === rack.id).length}개 장비 /&nbsp;
+              {totalU - devices.filter((d) => d.rack_id === rack.id).reduce((a, d) => a + (d.u_size || 1), 0)}U 여유
+            </div>
+          </div>
+
+          <div className="bg-gray-50">
+            {Array.from({ length: totalU }, (_, i) => i + 1).map((u) => {
+              if (rendered.has(u)) return null;
+              const slot = slotMap[u];
+
+              if (slot?.isStart) {
+                const size = slot.size;
+                for (let i = 0; i < size; i++) rendered.add(u + i);
+                const deviceData = devices.filter(d => d.rack_id === rack.id).find(d => d.u_position === u);
+                return (
+                  <DraggableDevice
+                    key={u}
+                    device={deviceData || slot}
+                    size={parseInt(deviceData?.u_size) || size}
+                    u={u}
+                    onClick={() => setModal({ u, device: slot })}
+                  />
+                );
+              }
+
+              rendered.add(u);
+              return (
+                <DragSelectSlot
+                  key={u}
+                  u={u}
+                  rackId={rack.id}
+                  allDevices={allDevices}
+                  isSelected={selectedUs.includes(u)}
+                  isSelecting={isDragSelecting}
+                  onMouseDown={() => handleMouseDown(u)}
+                  onMouseEnter={() => handleMouseEnter(u)}
+                  onClick={() => !isDragSelecting && setModal({ u, device: null })}
+                  onDrop={handleDrop}
+                />
+              );
+            })}
           </div>
         </div>
 
-        <div className="bg-gray-50">
-          {Array.from({ length: totalU }, (_, i) => i + 1).map((u) => {
-            if (rendered.has(u)) return null;
-            const slot = slotMap[u];
-
-            if (slot?.isStart) {
-              const size = slot.size;
-              for (let i = 0; i < size; i++) rendered.add(u + i);
-              const deviceData = devices.filter(d => d.rack_id === rack.id).find(d => d.u_position === u);
-              return (
-                <DraggableDevice
-                  key={u}
-                  device={deviceData || slot}
-                  size={parseInt(deviceData?.u_size) || size}
-                  u={u}
-                  onClick={() => setModal({ u, device: slot })}
-                />
-              );
-            }
-
-            rendered.add(u);
-            return (
-              <DragSelectSlot
-                key={u}
-                u={u}
-                rackId={rack.id}
-                allDevices={allDevices}
-                isSelected={selectedUs.includes(u)}
-                isSelecting={isDragSelecting}
-                onMouseDown={() => handleMouseDown(u)}
-                onMouseEnter={() => handleMouseEnter(u)}
-                onClick={() => !isDragSelecting && setModal({ u, device: null })}
-                onDrop={handleDrop}
-              />
-            );
-          })}
-        </div>
+        {modal && (
+          <SlotModal
+            slot={modal}
+            rack={rack}
+            allRacks={allRacks}
+            allDevices={allDevices}
+            onClose={() => setModal(null)}
+            onSave={onRefresh}
+            showToast={showToast}
+          />
+        )}
       </div>
-
-      {modal && (
-        <SlotModal
-          slot={modal}
-          rack={rack}
-          allRacks={allRacks}
-          allDevices={allDevices}
-          onClose={() => setModal(null)}
-          onSave={onRefresh}
-        />
-      )}
-    </div>
+    </>
   );
 }
 
-// DndProvider는 최상위에서 한 번만 감싸야 해요
 function RackViewWithDnd(props) {
   return (
     <DndProvider backend={HTML5Backend}>

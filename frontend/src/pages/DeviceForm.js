@@ -25,33 +25,60 @@ function DeviceForm() {
   const [allRacks, setAllRacks] = useState([]);
   const [filteredRacks, setFilteredRacks] = useState([]);
 
-  useEffect(() => {
+ useEffect(() => {
     getRacks().then((res) => setAllRacks(res.data));
     if (isEdit) {
       getDevice(id).then((res) => setForm(res.data));
     }
-  }, [id]);
+    // isEdit을 의존성 배열에 추가
+  }, [id, isEdit]); 
 
   useEffect(() => {
     const racks = allRacks.filter((r) => r.site === form.site);
     setFilteredRacks(racks);
-    if (!isEdit) setForm((prev) => ({ ...prev, rack_id: '' }));
-  }, [form.site, allRacks]);
+    if (!isEdit) {
+      setForm((prev) => ({ ...prev, rack_id: '' }));
+    }
+    // isEdit을 의존성 배열에 추가
+  }, [form.site, allRacks, isEdit]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async () => {
+const handleSubmit = async () => {
     if (!form.name) return alert('장비명을 입력해주세요.');
     if (!form.rack_id) return alert('랙을 선택해주세요.');
+
+    const selectedRack = allRacks.find(r => String(r.id) === String(form.rack_id));
+    
+    if (selectedRack) {
+      // Number()를 사용하여 확실하게 숫자로 변환합니다.
+      const uPos = Number(form.u_position); 
+      const uSize = Number(form.u_size);     
+      const totalU = Number(selectedRack.total_u || 42); 
+
+      // 검증: (시작위치 + 크기 - 1) 이 랙의 전체 크기보다 크면 안 됨
+      if (uPos + uSize - 1 > totalU) {
+        return alert(
+          `해당 랙은 최대 ${totalU}U까지만 수용 가능합니다.\n` +
+          `현재 설정(위치:${uPos}, 크기:${uSize})은 ${uPos + uSize - 1}U 위치까지 차지하게 되어 범위를 벗어납니다.`
+        );
+      }
+
+      if (uPos < 1) {
+        return alert('U위치는 1 이상이어야 합니다.');
+      }
+    }
+
+    // 이후 저장 로직...
     if (isEdit) {
       await updateDevice(id, form);
     } else {
       await createDevice(form);
     }
     navigate('/');
-  };
+};
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
