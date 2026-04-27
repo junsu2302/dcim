@@ -73,20 +73,21 @@ function RackPage() {
   return (
     <div className="min-h-screen bg-gray-100">
       {/* 상단 네비게이션 */}
-      <div className="bg-gray-900 text-white px-8 py-4 flex justify-between items-center shadow-lg">
+      <div className="text-white px-8 py-4 flex justify-between items-center shadow-lg" style={{ backgroundColor: '#003DA5' }}>
         <div className="flex items-center gap-4">
-          <h1 className="text-xl font-bold tracking-wide">🗂️ DCIM 랙 실장도</h1>
+          <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition" onClick={() => navigate('/')}>
+            <img src={require('../assets/header_logo.png')} alt="IBK시스템" style={{ height: '32px' }} />
+            <div className="w-px h-6 bg-white opacity-30"></div>
+            <h1 className="text-lg font-bold tracking-wide text-white">DCIM</h1>
+          </div>
           {/* Site 탭 */}
           <div className="flex gap-1 ml-6">
             {['전체', ...SITES].map((site) => (
               <button
                 key={site}
                 onClick={() => setSelectedSite(site)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition ${
-                  selectedSite === site
-                    ? 'bg-blue-500 text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-700'
-                }`}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition`}
+              style={{ backgroundColor: selectedSite === site ? '#FFB81C' : 'transparent', color: 'white' }}
               >
                 {site}
                 {site !== '전체' && (
