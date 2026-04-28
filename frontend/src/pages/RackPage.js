@@ -3,6 +3,7 @@ import { getDevices } from '../api/devices';
 import { getRacks, createRack, updateRack, deleteRack } from '../api/racks';
 import RackView from '../components/RackView';
 import { useNavigate } from 'react-router-dom';
+import { createSnapshot } from '../api/snapshots';
 
 const SITES = ['본사', '하남IDC'];
 
@@ -15,7 +16,9 @@ function RackPage() {
   const [editForm, setEditForm] = useState({ rack_number: '', site: '본사', total_u: 42 });
   const [editError, setEditError] = useState(null);
   const [showAddRack, setShowAddRack] = useState(false);
-const [addRackTargetSite, setAddRackTargetSite] = useState(null);
+  const [addRackTargetSite, setAddRackTargetSite] = useState(null);
+  const [showSnapshotModal, setShowSnapshotModal] = useState(false);
+  const [snapshotMemo, setSnapshotMemo] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -108,24 +111,71 @@ const [addRackTargetSite, setAddRackTargetSite] = useState(null);
             ))}
           </div>
         </div>
-        <div className="flex items-center p-1 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
-          {[{ label: '랙 실장도', path: '/' }, { label: '장비 리스트', path: '/devices' }].map((tab) => (
-            <button
-              key={tab.path}
-              onClick={() => navigate(tab.path)}
-              className="px-4 py-1.5 rounded-md text-sm font-medium transition-all"
-              style={{
-                backgroundColor: tab.path === '/' ? 'white' : 'transparent',
-                color: tab.path === '/' ? '#003DA5' : 'rgba(255,255,255,0.7)',
-                minWidth: '80px',
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowSnapshotModal(true)}
+            className="text-sm font-medium px-4 py-1.5 rounded-lg transition hover:opacity-90"
+            style={{ backgroundColor: '#FFB81C', color: 'white' }}
+          >
+            📸 스냅샷 저장
+          </button>
+          <div className="flex items-center p-1 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
+            {[{ label: '랙 실장도', path: '/' }, { label: '장비 리스트', path: '/devices' }, { label: '이력 관리', path: '/snapshots' }].map((tab) => (
+              <button
+                key={tab.path}
+                onClick={() => navigate(tab.path)}
+                className="px-4 py-1.5 rounded-md text-sm font-medium transition-all"
+                style={{
+                  backgroundColor: tab.path === '/' ? 'white' : 'transparent',
+                  color: tab.path === '/' ? '#003DA5' : 'rgba(255,255,255,0.7)',
+                  minWidth: '80px',
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-
+{/* 스냅샷 저장 모달 */}
+      {showSnapshotModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-96">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-1 h-5 rounded-full" style={{ backgroundColor: '#FFB81C' }}></div>
+              <h3 className="text-lg font-bold" style={{ color: '#003DA5' }}>스냅샷 저장</h3>
+            </div>
+            <p className="text-xs text-gray-400 mb-4 ml-3">현재 전체 랙/장비 현황을 저장합니다.</p>
+            <label className="text-sm font-medium text-gray-600 mb-1 block">메모 (선택)</label>
+            <input
+              type="text"
+              value={snapshotMemo}
+              onChange={(e) => setSnapshotMemo(e.target.value)}
+              placeholder="예: 2026년 4월 장비 추가 후"
+              className="w-full border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2"
+            />
+            <div className="flex gap-2 mt-5">
+              <button
+                onClick={async () => {
+                  await createSnapshot(snapshotMemo);
+                  setShowSnapshotModal(false);
+                  setSnapshotMemo('');
+                }}
+                className="flex-1 text-white py-2.5 rounded-xl text-sm font-semibold transition hover:opacity-90"
+                style={{ backgroundColor: '#003DA5' }}
+              >
+                저장
+              </button>
+              <button
+                onClick={() => { setShowSnapshotModal(false); setSnapshotMemo(''); }}
+                className="flex-1 bg-gray-100 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-200 transition"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* 랙 추가 모달 */}
       {showAddRack && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -155,6 +205,27 @@ const [addRackTargetSite, setAddRackTargetSite] = useState(null);
                 </button>
               ))}
             </div>
+            <div className="mt-3">
+              <label className="text-xs text-gray-400 mb-1 block">직접 입력 (10 ~ 48U)</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={10}
+                  max={48}
+                  value={newRackTotalU}
+                  onChange={(e) => setNewRackTotalU(e.target.value)}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (isNaN(val) || val < 10) setNewRackTotalU(10);
+                    else if (val > 48) setNewRackTotalU(48);
+                    else setNewRackTotalU(val);
+                  }}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                  style={{ '--tw-ring-color': '#003DA5' }}
+                />
+                <span className="text-sm text-gray-500 flex-shrink-0">U</span>
+              </div>
+            </div>
             <div className="mt-4 px-3 py-2 rounded-lg text-xs text-gray-500 flex items-center gap-1.5"
               style={{ backgroundColor: '#F4F6FA' }}>
               <span>🔢</span>
@@ -182,15 +253,26 @@ const [addRackTargetSite, setAddRackTargetSite] = useState(null);
       {/* 랙 실장도 본문 */}
       <div className="p-8">
         {filteredRacks.length === 0 ? (
-          <div className="text-center py-20 text-gray-400 bg-white rounded-xl shadow">
-            등록된 랙이 없습니다. 상단 "+ 랙 추가" 버튼으로 랙을 추가해주세요.
+          <div className="text-center py-20 text-gray-400 bg-white rounded-xl shadow flex flex-col items-center gap-4">
+            <div>등록된 랙이 없습니다.</div>
+            <div className="flex gap-3">
+              {SITES.map((site) => (
+                <button
+                  key={site}
+                  onClick={() => { setAddRackTargetSite(site); setNewRackTotalU(42); setShowAddRack(true); }}
+                  className="text-white px-4 py-1.5 rounded-lg text-sm font-medium transition hover:opacity-90"
+                  style={{ backgroundColor: '#003DA5' }}
+                >
+                  + {site} 랙 추가
+                </button>
+              ))}
+            </div>
           </div>
         ) : (
           <div className="flex flex-col gap-10">
             {SITES.map((site) => {
               const siteRacks = groupedRacks[site];
               if (selectedSite !== '전체' && selectedSite !== site) return null;
-              if (siteRacks.length === 0) return null;
               return (
                 <div key={site}>
                   {/* Site 구분 헤더 */}
@@ -216,6 +298,12 @@ const [addRackTargetSite, setAddRackTargetSite] = useState(null);
                   <div className="flex gap-4 flex-wrap">
                     {siteRacks.map((rack) => (
                       <div key={rack.id} className="flex flex-col gap-1">
+                        {/* 랙이 없을 때 */}
+                  {siteRacks.length === 0 && (
+                    <div className="text-center py-10 text-gray-400 bg-white rounded-xl">
+                      등록된 랙이 없습니다.
+                    </div>
+                  )}
                         {/* 랙 수정/삭제 */}
                         <div className="flex justify-end gap-2">
                           <button onClick={() => { setEditingRack(rack.id); setEditForm({ rack_number: rack.rack_number, site: rack.site, total_u: rack.total_u || 42 }); setEditError(null); }}

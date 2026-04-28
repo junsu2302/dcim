@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { getDevices } from '../api/devices';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { createSnapshot } from '../api/snapshots';
+import { getDocuments, getDownloadUrl } from '../api/documents';
 
 function DeviceList() {
   const [devices, setDevices] = useState([]);
   const [search, setSearch] = useState('');
   const [filterSite, setFilterSite] = useState('전체');
+  const [deviceDocs, setDeviceDocs] = useState({});
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -16,6 +19,12 @@ function DeviceList() {
   const fetchDevices = async () => {
     const res = await getDevices();
     setDevices(res.data);
+    const docsMap = {};
+    await Promise.all(res.data.map(async (d) => {
+      const docRes = await getDocuments(d.id);
+      docsMap[d.id] = docRes.data;
+    }));
+    setDeviceDocs(docsMap);
   };
 
   const sites = ['전체', ...new Set(devices.map(d => d.site).filter(Boolean))];
@@ -40,7 +49,10 @@ function DeviceList() {
   const NAV_TABS = [
     { label: '랙 실장도', path: '/' },
     { label: '장비 리스트', path: '/devices' },
+    { label: '이력 관리', path: '/snapshots' },
   ];
+  const [showSnapshotModal, setShowSnapshotModal] = useState(false);
+  const [snapshotMemo, setSnapshotMemo] = useState('');
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#F4F6FA' }}>
@@ -51,24 +63,71 @@ function DeviceList() {
           <div className="w-px h-6 bg-white opacity-30"></div>
           <h1 className="text-lg font-bold tracking-wide text-white">IT 인프라 관리 시스템</h1>
         </div>
-        <div className="flex items-center p-1 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
-          {NAV_TABS.map((tab) => (
-            <button
-              key={tab.path}
-              onClick={() => navigate(tab.path)}
-              className="px-4 py-1.5 rounded-md text-sm font-medium transition-all"
-              style={{
-                backgroundColor: location.pathname === tab.path ? 'white' : 'transparent',
-                color: location.pathname === tab.path ? '#003DA5' : 'rgba(255,255,255,0.7)',
-                minWidth: '80px',
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowSnapshotModal(true)}
+            className="text-sm font-medium px-4 py-1.5 rounded-lg transition hover:opacity-90"
+            style={{ backgroundColor: '#FFB81C', color: 'white' }}
+          >
+            📸 스냅샷 저장
+          </button>
+          <div className="flex items-center p-1 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
+            {NAV_TABS.map((tab) => (
+              <button
+                key={tab.path}
+                onClick={() => navigate(tab.path)}
+                className="px-4 py-1.5 rounded-md text-sm font-medium transition-all"
+                style={{
+                  backgroundColor: location.pathname === tab.path ? 'white' : 'transparent',
+                  color: location.pathname === tab.path ? '#003DA5' : 'rgba(255,255,255,0.7)',
+                  minWidth: '80px',
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-
+{/* 스냅샷 저장 모달 */}
+      {showSnapshotModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-96">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-1 h-5 rounded-full" style={{ backgroundColor: '#FFB81C' }}></div>
+              <h3 className="text-lg font-bold" style={{ color: '#003DA5' }}>스냅샷 저장</h3>
+            </div>
+            <p className="text-xs text-gray-400 mb-4 ml-3">현재 전체 랙/장비 현황을 저장합니다.</p>
+            <label className="text-sm font-medium text-gray-600 mb-1 block">메모 (선택)</label>
+            <input
+              type="text"
+              value={snapshotMemo}
+              onChange={(e) => setSnapshotMemo(e.target.value)}
+              placeholder="예: 2026년 4월 장비 추가 후"
+              className="w-full border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2"
+            />
+            <div className="flex gap-2 mt-5">
+              <button
+                onClick={async () => {
+                  await createSnapshot(snapshotMemo);
+                  setShowSnapshotModal(false);
+                  setSnapshotMemo('');
+                }}
+                className="flex-1 text-white py-2.5 rounded-xl text-sm font-semibold transition hover:opacity-90"
+                style={{ backgroundColor: '#003DA5' }}
+              >
+                저장
+              </button>
+              <button
+                onClick={() => { setShowSnapshotModal(false); setSnapshotMemo(''); }}
+                className="flex-1 bg-gray-100 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-200 transition"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* 통계 카드 */}
       <div className="px-8 py-6 border-b" style={{ backgroundColor: '#fff' }}>
         <div className="max-w-7xl mx-auto">
@@ -132,7 +191,7 @@ function DeviceList() {
           <table className="w-full text-sm">
             <thead>
               <tr style={{ backgroundColor: '#003DA5' }}>
-                {['ID', '구분', '장비명', '제조사', '시리얼', 'U위치', 'U사이즈', '도입일', '유지보수 업체', '사이트', '랙번호'].map((h) => (
+                {['ID', '구분', '장비명', '제조사', '시리얼', 'U위치', 'U사이즈', '도입일', '유지보수 업체', '사이트', '랙번호', '문서'].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-white font-medium">{h}</th>
                 ))}
               </tr>
@@ -172,6 +231,26 @@ function DeviceList() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-600">RACK #{device.rack_id}</td>
+                  <td className="px-4 py-3">
+                    {(deviceDocs[device.id] || []).length === 0 ? (
+                      <span className="text-gray-300 text-xs">-</span>
+                    ) : (
+                      <div className="flex flex-col gap-1">
+                        {(deviceDocs[device.id] || []).map(doc => (
+                          <a
+                            key={doc.id}
+                            href={getDownloadUrl(doc.id)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1 hover:opacity-70 transition"
+                          >
+                            <span className="text-xs" style={{ color: '#003DA5' }}>💾</span>
+                            <span className="text-xs text-blue-400 truncate max-w-[120px]">{doc.original_name}</span>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

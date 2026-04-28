@@ -4,6 +4,9 @@ from pydantic import BaseModel
 from typing import Optional
 from .. import models
 from ..database import get_db
+from ..models import DeviceHistory
+import json
+from datetime import datetime
 
 router = APIRouter(prefix="/devices", tags=["devices"])
 
@@ -48,6 +51,17 @@ def create_device(device: DeviceCreate, db: Session = Depends(get_db)):
     db.add(db_device)
     db.commit()
     db.refresh(db_device)
+
+    # 이력 저장 (생성)
+    history = DeviceHistory(
+        device_id=db_device.id,
+        change_type='create',
+        snapshot=json.dumps(device.dict(), ensure_ascii=False),
+        changed_at=datetime.utcnow(),
+    )
+    db.add(history)
+    db.commit()
+
     return db_device
 
 # 장비 수정
@@ -56,6 +70,17 @@ def update_device(device_id: int, device: DeviceCreate, db: Session = Depends(ge
     db_device = db.query(models.Device).filter(models.Device.id == device_id).first()
     if not db_device:
         raise HTTPException(status_code=404, detail="장비를 찾을 수 없습니다")
+
+    # 변경 전 데이터 이력 저장
+    snapshot = {c.name: getattr(db_device, c.name) for c in db_device.__table__.columns}
+    history = DeviceHistory(
+        device_id=device_id,
+        change_type='update',
+        snapshot=json.dumps(snapshot, ensure_ascii=False, default=str),
+        changed_at=datetime.utcnow(),
+    )
+    db.add(history)
+
     for key, value in device.dict().items():
         setattr(db_device, key, value)
     db.commit()
@@ -68,6 +93,18 @@ def delete_device(device_id: int, db: Session = Depends(get_db)):
     db_device = db.query(models.Device).filter(models.Device.id == device_id).first()
     if not db_device:
         raise HTTPException(status_code=404, detail="장비를 찾을 수 없습니다")
+
+    # 삭제 전 데이터 이력 저장
+    snapshot = {c.name: getattr(db_device, c.name) for c in db_device.__table__.columns}
+    history = DeviceHistory(
+        device_id=device_id,
+        change_type='delete',
+        snapshot=json.dumps(snapshot, ensure_ascii=False, default=str),
+        changed_at=datetime.utcnow(),
+    )
+    db.add(history)
+    db.commit()
+
     db.delete(db_device)
     db.commit()
     return {"message": "삭제 완료"}
