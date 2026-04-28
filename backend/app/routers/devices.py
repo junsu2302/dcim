@@ -21,6 +21,8 @@ class DeviceCreate(BaseModel):
     rack_id: Optional[int] = None
     site: Optional[str] = None
     device_type: Optional[str] = '기타'
+    product_name: Optional[str] = None
+    ip_address: Optional[str] = None
 
 # 장비 전체 조회
 @router.get("/")

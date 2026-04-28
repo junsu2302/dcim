@@ -163,8 +163,6 @@ function SnapshotPage() {
                             className="flex items-center justify-between p-3 rounded-xl border border-gray-100 hover:bg-blue-50 transition"
                           >
                             <div className="flex items-center gap-2">
-                              <span className="px-2 py-0.5 rounded-full text-xs font-medium"
-                                style={{ backgroundColor: '#E8EEFF', color: '#003DA5' }}>{doc.doc_type}</span>
                               <span className="text-sm text-gray-700 truncate max-w-[180px]">{doc.original_name}</span>
                             </div>
                             <span className="text-xs text-blue-500 font-medium">다운로드</span>
@@ -202,11 +200,12 @@ function SnapshotPage() {
                             const rackDevices = selected.data.devices.filter(d => d.rack_id === rack.id);
                             const totalU = rack.total_u || 42;
                             const slotMap = {};
-                            rackDevices.forEach(d => {
-                              for (let i = 0; i < (d.u_size || 1); i++) {
-                                slotMap[d.u_position + i] = { ...d, isStart: i === 0, size: d.u_size || 1 };
-                              }
-                            });
+rackDevices.forEach(d => {
+                                      const size = d.u_size || 1;
+                                      for (let i = 0; i < size; i++) {
+                                        slotMap[d.u_position + i] = { ...d, isStart: i === size - 1, size };
+                                      }
+                                    });
                             const rendered = new Set();
                             return (
                               <div key={rack.id} className="rounded-2xl overflow-hidden shadow-lg border border-gray-200 w-72">
@@ -218,17 +217,18 @@ function SnapshotPage() {
                                   </div>
                                 </div>
                                 <div className="bg-gray-50">
-                                  {Array.from({ length: totalU }, (_, i) => i + 1).map(u => {
+                                  {Array.from({ length: totalU }, (_, i) => totalU - i).map(u => {
                                     if (rendered.has(u)) return null;
                                     const slot = slotMap[u];
                                     if (slot?.isStart) {
-                                      for (let i = 0; i < slot.size; i++) rendered.add(u + i);
+                                      const actualStart = u - slot.size + 1;
+                                      for (let i = 0; i < slot.size; i++) rendered.add(actualStart + i);
                                       return (
                                         <div key={u} className="relative border-b border-gray-100"
                                           style={{ height: `${slot.size * 34}px` }}>
                                           {Array.from({ length: slot.size }, (_, i) => (
                                             <div key={i} className="flex items-center px-2 gap-2" style={{ height: '34px' }}>
-                                              <div className="text-xs text-gray-400 w-8 font-mono">{u + i}U</div>
+                                              <div className="text-xs text-gray-400 w-8 font-mono">{u - i}U</div>
                                             </div>
                                           ))}
                                           <div
@@ -244,7 +244,7 @@ function SnapshotPage() {
                                         </div>
                                       );
                                     }
-                                    rendered.add(u);
+                                    if (!rendered.has(u)) rendered.add(u);
                                     return (
                                       <div key={u} className="flex items-center border-b border-gray-100 px-2 bg-white" style={{ minHeight: '34px' }}>
                                         <div className="text-xs text-gray-400 w-8 font-mono">{u}U</div>

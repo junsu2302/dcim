@@ -24,6 +24,8 @@ class Device(Base):
     rack_id = Column(Integer)
     site = Column(String)
     device_type = Column(String, default='기타')
+    product_name = Column(String)
+    ip_address = Column(String)
 
 class DeviceHistory(Base):
     __tablename__ = "device_history"

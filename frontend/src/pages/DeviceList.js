@@ -130,7 +130,7 @@ function DeviceList() {
       )}
       {/* 통계 카드 */}
       <div className="px-8 py-6 border-b" style={{ backgroundColor: '#fff' }}>
-        <div className="max-w-7xl mx-auto">
+        <div>
           <div className="grid grid-cols-5 gap-4">
             {[
               { label: '전체 장비', value: devices.length, color: '#003DA5', icon: '🖥️' },
@@ -155,7 +155,7 @@ function DeviceList() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-8 py-6">
+      <div className="px-32 py-6">
         {/* 검색 & 필터 */}
         <div className="bg-white rounded-xl shadow-sm p-4 mb-6 flex gap-4 items-center">
           <div className="flex-1 relative">
@@ -187,13 +187,28 @@ function DeviceList() {
         </div>
 
         {/* 테이블 */}
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="bg-white rounded-xl shadow-sm" style={{ overflowX: 'auto' }}>
+          <table className="text-sm" style={{ minWidth: '1400px', width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
             <thead>
               <tr style={{ backgroundColor: '#003DA5' }}>
-                {['ID', '구분', '장비명', '제조사', '시리얼', 'U위치', 'U사이즈', '도입일', '유지보수 업체', '사이트', '랙번호', '문서'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-white font-medium">{h}</th>
-                ))}
+              {[
+                { label: 'ID', width: '4%' },
+                { label: '구분', width: '5%' },
+                { label: '장비명', width: '10%' },
+                { label: '제조사', width: '7%' },
+                { label: '제품명', width: '7%' },
+                { label: 'IP', width: '8%' },
+                { label: '시리얼', width: '9%' },
+                { label: 'U위치', width: '5%' },
+                { label: 'U사이즈', width: '6%' },
+                { label: '도입일', width: '8%' },
+                { label: '유지보수 업체', width: '9%' },
+                { label: '사이트', width: '6%' },
+                { label: '랙번호', width: '7%' },
+                { label: '문서', width: '9%' },
+              ].map((h) => (
+                <th key={h.label} className="px-4 py-3 text-left text-white font-medium text-sm whitespace-nowrap" style={{ width: h.width }}>{h.label}</th>
+              ))}
               </tr>
             </thead>
             <tbody>
@@ -203,8 +218,8 @@ function DeviceList() {
                   className="border-b border-gray-100 hover:bg-blue-50 transition cursor-pointer"
                   style={{ backgroundColor: idx % 2 === 0 ? '#fff' : '#FAFBFF' }}
                 >
-                  <td className="px-4 py-3 text-gray-400 text-xs">{idx + 1}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-5 text-gray-400 text-sm whitespace-nowrap">{idx + 1}</td>
+                  <td className="px-4 py-5 whitespace-nowrap">
                     <span className="px-2 py-0.5 rounded-full text-xs font-medium text-white"
                       style={{ backgroundColor:
                         device.device_type === '보안' ? '#C62828' :
@@ -214,14 +229,16 @@ function DeviceList() {
                       {device.device_type || '기타'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 font-semibold" style={{ color: '#003DA5' }}>{device.name}</td>
-                  <td className="px-4 py-3 text-gray-600">{device.manufacturer}</td>
-                  <td className="px-4 py-3 text-gray-500 font-mono text-xs">{device.serial}</td>
-                  <td className="px-4 py-3 text-gray-600">{device.u_position}U</td>
-                  <td className="px-4 py-3 text-gray-600">{device.u_size}U</td>
-                  <td className="px-4 py-3 text-gray-600">{device.introduced_date}</td>
-                  <td className="px-4 py-3 text-gray-600">{device.maintenance_company}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-5 font-semibold text-sm whitespace-nowrap" style={{ color: '#003DA5' }}>{device.name}</td>
+                  <td className="px-4 py-5 text-gray-600 text-sm whitespace-nowrap">{device.manufacturer}</td>
+                  <td className="px-4 py-5 text-gray-600 text-sm whitespace-nowrap">{device.product_name}</td>
+                  <td className="px-4 py-5 text-gray-500 font-mono text-sm whitespace-nowrap">{device.ip_address}</td>
+                  <td className="px-4 py-5 text-gray-500 font-mono text-sm whitespace-nowrap">{device.serial}</td>
+                  <td className="px-4 py-5 text-gray-600 text-sm whitespace-nowrap">{device.u_position}U</td>
+                  <td className="px-4 py-5 text-gray-600 text-sm whitespace-nowrap">{device.u_size}U</td>
+                  <td className="px-4 py-5 text-gray-600 text-sm whitespace-nowrap">{device.introduced_date}</td>
+                  <td className="px-4 py-5 text-gray-600 text-sm whitespace-nowrap">{device.maintenance_company}</td>
+                  <td className="px-4 py-5 whitespace-nowrap">
                     <span className="px-2 py-0.5 rounded-full text-xs font-medium"
                       style={{
                         backgroundColor: device.site === '본사' ? '#E8EEFF' : '#FFF3E0',
@@ -230,8 +247,8 @@ function DeviceList() {
                       {device.site}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">RACK #{device.rack_id}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-5 text-gray-600 text-sm whitespace-nowrap">RACK #{device.rack_id}</td>
+                  <td className="px-4 py-5">
                     {(deviceDocs[device.id] || []).length === 0 ? (
                       <span className="text-gray-300 text-xs">-</span>
                     ) : (

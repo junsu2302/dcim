@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
+import { HTML5Backend, getEmptyImage } from 'react-dnd-html5-backend';
 import { createDevice, updateDevice, deleteDevice } from '../api/devices';
 import { getDeviceHistory } from '../api/history';
 import { getDocuments, uploadDocument, deleteDocument, getDownloadUrl } from '../api/documents';
@@ -422,9 +422,57 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
     </div>
   );
 }
-function DraggableDevice({ device, size, u, onClick }) {
+function DraggableDevice({ device, size, u, onClick, onDrop, allDevices, rackId }) {
   const [showTooltip, setShowTooltip] = useState(false);
-  const [{ isDragging }, drag] = useDrag(() => ({
+  const domRef = React.useRef(null);
+
+  const [{ isOver, canDrop }, drop] = useDrop(() => ({
+    accept: ITEM_TYPE,
+    drop: (item, monitor) => {
+      // 마우스 위치로 어느 U에 드롭했는지 계산
+      const clientOffset = monitor.getClientOffset();
+      const rect = domRef.current?.getBoundingClientRect();
+      if (clientOffset && rect) {
+        const relativeY = clientOffset.y - rect.top;
+        const slotIndex = Math.floor(relativeY / 34);
+        // 역순: 위가 큰 U번호
+        const targetU = u + size - 1 - slotIndex;
+        onDrop({ ...item.device, u_size: item.size }, targetU, rackId);
+      } else {
+        onDrop({ ...item.device, u_size: item.size }, u + size - 1, rackId);
+      }
+    },
+    canDrop: (item, monitor) => {
+      if (item.device.id === device.id) {
+        // 자기 자신: 어디든 이동 가능
+        return true;
+      }
+      // 다른 장비: 마우스 위치 기준으로 체크
+      const clientOffset = monitor.getClientOffset();
+      const rect = domRef.current?.getBoundingClientRect();
+      let targetU = u + size - 1;
+      if (clientOffset && rect) {
+        const relativeY = clientOffset.y - rect.top;
+        const slotIndex = Math.floor(relativeY / 34);
+        targetU = u + size - 1 - slotIndex;
+      }
+      const uSize = parseInt(item.device.u_size) || 1;
+      const uStart = targetU - uSize + 1;
+      const uEnd = targetU;
+      if (uStart < 1) return false;
+      const conflicted = allDevices
+        .filter((d) => d.rack_id === rackId && d.id !== item.device.id)
+        .some((d) => {
+          const dStart = parseInt(d.u_position);
+          const dEnd = dStart + (parseInt(d.u_size) || 1) - 1;
+          return uStart <= dEnd && uEnd >= dStart;
+        });
+      return !conflicted;
+    },
+    collect: (monitor) => ({ isOver: monitor.isOver(), canDrop: monitor.canDrop() }),
+  }));
+
+  const [{ isDragging }, drag, preview] = useDrag(() => ({
     type: ITEM_TYPE,
     item: () => ({
       device: { ...device, u_size: parseInt(size) || 1, device_type: device.device_type || '기타' },
@@ -433,20 +481,43 @@ function DraggableDevice({ device, size, u, onClick }) {
     collect: (monitor) => ({ isDragging: monitor.isDragging() }),
   }));
 
+  useEffect(() => {
+    if (isDragging) setShowTooltip(false);
+  }, [isDragging]);
+
+  useEffect(() => {
+    preview(getEmptyImage(), { captureDraggingState: true });
+  }, [preview]);
+
   return (
     <div
-      ref={drag}
+      id={`device-${device.id}`}
+      ref={(node) => { drag(node); drop(node); domRef.current = node; }}
       onClick={onClick}
-      onMouseEnter={() => setShowTooltip(true)}
+      onMouseEnter={() => { if (!isDragging) setShowTooltip(true); }}
       onMouseLeave={() => setShowTooltip(false)}
-      style={{ opacity: isDragging ? 0.4 : 1, height: `${size * 34}px` }}
-      className="relative bg-blue-50 border-b border-blue-100 cursor-grab hover:bg-blue-100 transition group flex flex-col"
+      style={{ 
+        opacity: isDragging ? 0.4 : 1, 
+        height: `${size * 34}px`,
+        backgroundColor: isOver && canDrop ? '#E8F5E9' : isOver && !canDrop ? '#FFEBEE' : '#EFF6FF',
+      }}
+      className="relative border-b border-blue-100 cursor-grab transition group flex flex-col"
     >
       {Array.from({ length: size }, (_, i) => (
         <div key={i} className="flex items-center px-2 gap-2" style={{ height: '34px', flexShrink: 0 }}>
-          <div className="text-xs text-gray-400 w-8 flex-shrink-0 font-mono">{u + i}U</div>
+          <div className="text-xs text-gray-400 w-8 flex-shrink-0 font-mono">{u + size - 1 - i}U</div>
         </div>
       ))}
+      {isOver && canDrop && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ left: '48px' }}>
+          <div className="text-xs text-green-600 font-medium">여기에 놓기</div>
+        </div>
+      )}
+      {isOver && !canDrop && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ left: '48px' }}>
+          <div className="text-xs text-red-400 font-medium">배치 불가</div>
+        </div>
+      )}
       <div
         className="absolute text-white rounded px-2 py-1 text-xs font-medium flex justify-between items-center transition"
         style={{
@@ -459,10 +530,10 @@ function DraggableDevice({ device, size, u, onClick }) {
       </div>
 
       {/* 툴팁 */}
-      {showTooltip && !isDragging && (
+      {showTooltip && !isDragging && !document.querySelector('[data-is-dragging]') && (
         <div
           className="absolute z-50 bg-white rounded-xl shadow-2xl p-3 text-xs border border-gray-100 pointer-events-none"
-          style={{ left: '110%', top: '0', minWidth: '200px', maxWidth: '260px' }}
+          style={{ left: '105%', top: '50%', transform: 'translateY(-50%)', minWidth: '200px', maxWidth: '260px' }}
         >
           <div className="font-bold mb-2 text-sm" style={{ color: '#003DA5' }}>{device.name}</div>
           <div className="flex flex-col gap-1 text-gray-600">
@@ -495,13 +566,15 @@ function DragSelectSlot({ u, isSelected, isSelecting, onMouseDown, onMouseEnter,
     drop: (item) => onDrop({ ...item.device, u_size: item.size }, u, rackId),
     canDrop: (item) => {
       const uSize = parseInt(item.device.u_size) || 1;
-      const uEnd = u + uSize - 1;
+      const uStart = u - uSize + 1;
+      const uEnd = u;
+      if (uStart < 1) return false;
       const conflicted = allDevices
         .filter((d) => d.rack_id === rackId && d.id !== item.device.id)
         .some((d) => {
           const dStart = parseInt(d.u_position);
           const dEnd = dStart + (parseInt(d.u_size) || 1) - 1;
-          return u <= dEnd && uEnd >= dStart;
+          return uStart <= dEnd && uEnd >= dStart;
         });
       return !conflicted;
     },
@@ -588,20 +661,21 @@ function RackView({ rack, devices, allRacks, allDevices, onRefresh }) {
   devices.filter((d) => d.rack_id === rack.id).forEach((d) => {
     const size = d.u_size || 1;
     for (let i = 0; i < size; i++) {
-      slotMap[d.u_position + i] = { ...d, isStart: i === 0, size };
+      slotMap[d.u_position + i] = { ...d, isStart: i === size - 1, size };
     }
   });
 
   const rendered = new Set();
 
   const handleDrop = async (device, targetU, targetRackId) => {
-    console.log('드롭 device_type:', device.device_type);
     const uSize = parseInt(device.u_size) || 1;
-    const uEnd = targetU + uSize - 1;
+    const uStart = targetU - uSize + 1;
+    const uEnd = targetU;
 
     const targetRack = allRacks.find((r) => r.id === parseInt(targetRackId));
     const maxU = targetRack?.total_u || 42;
 
+    if (uStart < 1) return showToast('랙 범위를 벗어납니다!', 'error');
     if (uEnd > maxU) return showToast(`랙 크기 초과! 이 랙은 ${maxU}U까지만 가능합니다.`, 'error');
 
     const conflicted = allDevices
@@ -609,7 +683,7 @@ function RackView({ rack, devices, allRacks, allDevices, onRefresh }) {
       .some((d) => {
         const dStart = parseInt(d.u_position);
         const dEnd = dStart + (parseInt(d.u_size) || 1) - 1;
-        return targetU <= dEnd && uEnd >= dStart;
+        return uStart <= dEnd && uEnd >= dStart;
       });
 
     if (conflicted) return showToast('해당 U위치에 이미 다른 장비가 있습니다!', 'error');
@@ -618,7 +692,7 @@ function RackView({ rack, devices, allRacks, allDevices, onRefresh }) {
       name: device.name,
       manufacturer: device.manufacturer,
       serial: device.serial,
-      u_position: parseInt(targetU),
+      u_position: uStart,
       u_size: uSize,
       introduced_date: device.introduced_date,
       maintenance_company: device.maintenance_company,
@@ -646,21 +720,26 @@ function RackView({ rack, devices, allRacks, allDevices, onRefresh }) {
           </div>
 
           <div className="bg-gray-50 overflow-visible">
-            {Array.from({ length: totalU }, (_, i) => i + 1).map((u) => {
+            {Array.from({ length: totalU }, (_, i) => totalU - i).map((u) => {
               if (rendered.has(u)) return null;
               const slot = slotMap[u];
 
               if (slot?.isStart) {
                 const size = slot.size;
-                for (let i = 0; i < size; i++) rendered.add(u + i);
-                const deviceData = devices.filter(d => d.rack_id === rack.id).find(d => d.u_position === u);
+                // 역순: u가 가장 큰 번호(화면 위), 실제 시작은 u - size + 1
+                const actualStart = u - size + 1;
+                for (let i = 0; i < size; i++) rendered.add(actualStart + i);
+                const deviceData = devices.filter(d => d.rack_id === rack.id).find(d => d.u_position === actualStart);
                 return (
                   <DraggableDevice
                     key={u}
                     device={deviceData || slot}
                     size={parseInt(deviceData?.u_size) || size}
-                    u={u}
-                    onClick={() => setModal({ u, device: slot })}
+                    u={actualStart}
+                    onClick={() => setModal({ u: actualStart, device: slot })}
+                    onDrop={handleDrop}
+                    allDevices={allDevices}
+                    rackId={rack.id}
                   />
                 );
               }
