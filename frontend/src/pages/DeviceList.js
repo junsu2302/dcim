@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getDevices } from '../api/devices';
+import { getRacks } from '../api/racks';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { createSnapshot } from '../api/snapshots';
 import { getDocuments, getDownloadUrl } from '../api/documents';
@@ -16,18 +17,19 @@ function DeviceList() {
     fetchDevices();
   }, []);
 
+  const [racks, setRacks] = useState([]);
+
   const fetchDevices = async () => {
-    const res = await getDevices();
-    setDevices(res.data);
+    const [devRes, rackRes] = await Promise.all([getDevices(), getRacks()]);
+    setDevices(devRes.data);
+    setRacks(rackRes.data);
     const docsMap = {};
-    await Promise.all(res.data.map(async (d) => {
+    await Promise.all(devRes.data.map(async (d) => {
       const docRes = await getDocuments(d.id);
       docsMap[d.id] = docRes.data;
     }));
     setDeviceDocs(docsMap);
   };
-
-  const sites = ['전체', ...new Set(devices.map(d => d.site).filter(Boolean))];
 
   const filtered = devices
     .filter((d) => {
@@ -41,9 +43,12 @@ function DeviceList() {
       return matchSite && matchSearch;
     })
     .sort((a, b) => {
-      if (a.site !== b.site) return a.site.localeCompare(b.site);
+      const siteOrder = { '본사': 0, '하남IDC': 1 };
+      const siteA = siteOrder[a.site] ?? 99;
+      const siteB = siteOrder[b.site] ?? 99;
+      if (siteA !== siteB) return siteA - siteB;
       if (a.rack_id !== b.rack_id) return a.rack_id - b.rack_id;
-      return a.u_position - b.u_position;
+      return b.u_position - a.u_position;
     });
 
   const NAV_TABS = [
@@ -103,7 +108,7 @@ function DeviceList() {
               type="text"
               value={snapshotMemo}
               onChange={(e) => setSnapshotMemo(e.target.value)}
-              placeholder="예: 2026년 4월 장비 추가 후"
+              placeholder=""
               className="w-full border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2"
             />
             <div className="flex gap-2 mt-5">
@@ -129,29 +134,58 @@ function DeviceList() {
         </div>
       )}
       {/* 통계 카드 */}
-      <div className="px-8 py-6 border-b" style={{ backgroundColor: '#fff' }}>
-        <div>
-          <div className="grid grid-cols-5 gap-4">
-            {[
-              { label: '전체 장비', value: devices.length, color: '#003DA5', icon: '🖥️' },
-              { label: '보안', value: devices.filter(d => d.device_type === '보안').length, color: '#C62828', icon: '🔒' },
-              { label: '네트워크', value: devices.filter(d => d.device_type === '네트워크').length, color: '#1565C0', icon: '🌐' },
-              { label: '서버', value: devices.filter(d => d.device_type === '서버').length, color: '#2E7D32', icon: '⚙️' },
-              { label: '기타', value: devices.filter(d => !d.device_type || d.device_type === '기타').length, color: '#6D4C41', icon: '📦' },
-            ].map((stat) => (
-              <div key={stat.label} className="rounded-xl p-4 flex items-center gap-4"
-                style={{ backgroundColor: stat.color + '10', border: `1px solid ${stat.color}22` }}>
-                <div className="text-3xl w-12 h-12 rounded-xl flex items-center justify-center"
-                  style={{ backgroundColor: stat.color + '18' }}>
-                  {stat.icon}
-                </div>
-                <div>
-                  <div className="text-2xl font-bold" style={{ color: stat.color }}>{stat.value}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">{stat.label}</div>
-                </div>
+      <div className="px-16 py-6 border-b" style={{ backgroundColor: '#fff' }}>
+        {/* 사이트 탭 */}
+        <div className="flex gap-3 mb-5">
+          {[
+            { key: '전체', label: '전체', count: devices.length },
+            { key: '본사', label: '본사', count: devices.filter(d => d.site === '본사').length },
+            { key: '하남IDC', label: '하남IDC', count: devices.filter(d => d.site === '하남IDC').length },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setFilterSite(tab.key)}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all"
+              style={{
+                backgroundColor: filterSite === tab.key ? '#003DA5' : '#F4F6FA',
+                color: filterSite === tab.key ? 'white' : '#555',
+                boxShadow: filterSite === tab.key ? '0 4px 12px rgba(0,61,165,0.25)' : 'none',
+                transform: filterSite === tab.key ? 'scale(1.03)' : 'scale(1)',
+              }}
+            >
+              <span>{tab.label}</span>
+              <span className="px-2 py-0.5 rounded-full text-xs font-bold"
+                style={{
+                  backgroundColor: filterSite === tab.key ? 'rgba(255,255,255,0.25)' : '#E5E7EB',
+                  color: filterSite === tab.key ? 'white' : '#555',
+                }}>
+                {tab.count}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* 통계 카드 */}
+        <div className="grid grid-cols-5 gap-4">
+          {[
+            { label: '전체 장비', value: devices.filter(d => filterSite === '전체' || d.site === filterSite).length, color: '#003DA5', icon: '🖥️' },
+            { label: '보안', value: devices.filter(d => d.device_type === '보안' && (filterSite === '전체' || d.site === filterSite)).length, color: '#C62828', icon: '🔒' },
+            { label: '네트워크', value: devices.filter(d => d.device_type === '네트워크' && (filterSite === '전체' || d.site === filterSite)).length, color: '#1565C0', icon: '🌐' },
+            { label: '서버', value: devices.filter(d => d.device_type === '서버' && (filterSite === '전체' || d.site === filterSite)).length, color: '#2E7D32', icon: '⚙️' },
+            { label: '기타', value: devices.filter(d => (!d.device_type || d.device_type === '기타') && (filterSite === '전체' || d.site === filterSite)).length, color: '#6D4C41', icon: '📦' },
+          ].map((stat) => (
+            <div key={stat.label} className="rounded-xl p-4 flex items-center gap-4 transition-all"
+              style={{ backgroundColor: stat.color + '10', border: `1.5px solid ${stat.color}22` }}>
+              <div className="text-3xl w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: stat.color + '18' }}>
+                {stat.icon}
               </div>
-            ))}
-          </div>
+              <div>
+                <div className="text-2xl font-bold" style={{ color: stat.color }}>{stat.value}</div>
+                <div className="text-xs text-gray-500 mt-0.5">{stat.label}</div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -168,21 +202,6 @@ function DeviceList() {
               className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2"
             />
           </div>
-          <div className="flex gap-2">
-            {sites.map(site => (
-              <button
-                key={site}
-                onClick={() => setFilterSite(site)}
-                className="px-4 py-2 rounded-lg text-sm font-medium transition"
-                style={{
-                  backgroundColor: filterSite === site ? '#003DA5' : '#F4F6FA',
-                  color: filterSite === site ? 'white' : '#555',
-                }}
-              >
-                {site}
-              </button>
-            ))}
-          </div>
           <div className="text-xs text-gray-400">총 {filtered.length}개</div>
         </div>
 
@@ -193,17 +212,17 @@ function DeviceList() {
               <tr style={{ backgroundColor: '#003DA5' }}>
               {[
                 { label: 'ID', width: '4%' },
+                { label: '사이트', width: '6%' },
                 { label: '구분', width: '5%' },
                 { label: '장비명', width: '10%' },
                 { label: '제조사', width: '7%' },
-                { label: '제품명', width: '7%' },
-                { label: 'IP', width: '8%' },
+                { label: '모델명', width: '10%' },
+                { label: 'IP', width: '10%' },
                 { label: '시리얼', width: '9%' },
                 { label: 'U위치', width: '5%' },
                 { label: 'U사이즈', width: '6%' },
                 { label: '도입일', width: '8%' },
                 { label: '유지보수 업체', width: '9%' },
-                { label: '사이트', width: '6%' },
                 { label: '랙번호', width: '7%' },
                 { label: '문서', width: '9%' },
               ].map((h) => (
@@ -220,6 +239,15 @@ function DeviceList() {
                 >
                   <td className="px-4 py-5 text-gray-400 text-sm whitespace-nowrap">{idx + 1}</td>
                   <td className="px-4 py-5 whitespace-nowrap">
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium"
+                      style={{
+                        backgroundColor: device.site === '본사' ? '#E8EEFF' : '#FFF3E0',
+                        color: device.site === '본사' ? '#003DA5' : '#E65100'
+                      }}>
+                      {device.site}
+                    </span>
+                  </td>
+                  <td className="px-4 py-5 whitespace-nowrap">
                     <span className="px-2 py-0.5 rounded-full text-xs font-medium text-white"
                       style={{ backgroundColor:
                         device.device_type === '보안' ? '#C62828' :
@@ -231,23 +259,19 @@ function DeviceList() {
                   </td>
                   <td className="px-4 py-5 font-semibold text-sm whitespace-nowrap" style={{ color: '#003DA5' }}>{device.name}</td>
                   <td className="px-4 py-5 text-gray-600 text-sm whitespace-nowrap">{device.manufacturer}</td>
-                  <td className="px-4 py-5 text-gray-600 text-sm whitespace-nowrap">{device.product_name}</td>
-                  <td className="px-4 py-5 text-gray-500 font-mono text-sm whitespace-nowrap">{device.ip_address}</td>
+                  <td className="px-4 py-5 text-gray-600 text-sm" style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{device.product_name}</td>
+                  <td className="px-4 py-5 text-gray-500 font-mono text-sm" style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{device.ip_address}</td>
                   <td className="px-4 py-5 text-gray-500 font-mono text-sm whitespace-nowrap">{device.serial}</td>
                   <td className="px-4 py-5 text-gray-600 text-sm whitespace-nowrap">{device.u_position}U</td>
                   <td className="px-4 py-5 text-gray-600 text-sm whitespace-nowrap">{device.u_size}U</td>
                   <td className="px-4 py-5 text-gray-600 text-sm whitespace-nowrap">{device.introduced_date}</td>
                   <td className="px-4 py-5 text-gray-600 text-sm whitespace-nowrap">{device.maintenance_company}</td>
-                  <td className="px-4 py-5 whitespace-nowrap">
-                    <span className="px-2 py-0.5 rounded-full text-xs font-medium"
-                      style={{
-                        backgroundColor: device.site === '본사' ? '#E8EEFF' : '#FFF3E0',
-                        color: device.site === '본사' ? '#003DA5' : '#E65100'
-                      }}>
-                      {device.site}
-                    </span>
+                  <td className="px-4 py-5 text-gray-600 text-sm whitespace-nowrap">
+                    {(() => {
+                      const rack = racks.find(r => r.id === device.rack_id);
+                      return rack ? `RACK #${rack.rack_number}` : '-';
+                    })()}
                   </td>
-                  <td className="px-4 py-5 text-gray-600 text-sm whitespace-nowrap">RACK #{device.rack_id}</td>
                   <td className="px-4 py-5">
                     {(deviceDocs[device.id] || []).length === 0 ? (
                       <span className="text-gray-300 text-xs">-</span>

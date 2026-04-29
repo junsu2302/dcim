@@ -211,6 +211,8 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
               {[
                 { label: '장비명', name: 'name', type: 'text', required: true },
                 { label: '제조사', name: 'manufacturer', type: 'text' },
+                { label: '모델명', name: 'product_name', type: 'text' },
+                { label: 'IP', name: 'ip_address', type: 'text' },
                 { label: '시리얼', name: 'serial', type: 'text' },
                 { label: '도입일', name: 'introduced_date', type: 'date' },
                 { label: '유지보수 업체', name: 'maintenance_company', type: 'text' },
@@ -376,8 +378,6 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
               ) : documents.map((doc) => (
                 <div key={doc.id} className="flex items-center justify-between p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition">
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className="px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0"
-                      style={{ backgroundColor: '#E8EEFF', color: '#003DA5' }}>{doc.doc_type}</span>
                     <span className="text-sm text-gray-700 truncate">{doc.original_name}</span>
                   </div>
                   <div className="flex gap-2 flex-shrink-0 ml-2">

@@ -16,7 +16,10 @@ class Device(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     manufacturer = Column(String)
-    serial = Column(String, unique=True)
+    model_name = Column(String)          # ✅ 추가: 모델명
+    ip_address = Column(String)          # ✅ 추가: IP
+    hostname = Column(String)            # ✅ 추가: 호스트명
+    serial = Column(String, nullable=True)
     u_position = Column(Integer)
     u_size = Column(Integer, default=1)
     introduced_date = Column(String)
@@ -24,8 +27,6 @@ class Device(Base):
     rack_id = Column(Integer)
     site = Column(String)
     device_type = Column(String, default='기타')
-    product_name = Column(String)
-    ip_address = Column(String)
 
 class DeviceHistory(Base):
     __tablename__ = "device_history"

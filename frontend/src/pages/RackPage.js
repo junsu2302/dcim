@@ -151,7 +151,7 @@ function RackPage() {
               type="text"
               value={snapshotMemo}
               onChange={(e) => setSnapshotMemo(e.target.value)}
-              placeholder="예: 2026년 4월 장비 추가 후"
+              placeholder=""
               className="w-full border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2"
             />
             <div className="flex gap-2 mt-5">

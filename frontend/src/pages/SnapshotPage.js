@@ -20,6 +20,7 @@ function SnapshotPage() {
   const [selected, setSelected] = useState(null);
   const [viewTab, setViewTab] = useState('rack');
   const [selectedDevice, setSelectedDevice] = useState(null);
+  const [snapshotFilterSite, setSnapshotFilterSite] = useState('전체');
   const navigate = useNavigate();
 
   useEffect(() => { fetchSnapshots(); }, []);
@@ -160,12 +161,10 @@ function SnapshotPage() {
                             href={`${process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/documents/download/${doc.id}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="flex items-center justify-between p-3 rounded-xl border border-gray-100 hover:bg-blue-50 transition"
+                            className="flex items-center justify-between p-2 rounded-lg border border-gray-100 hover:bg-blue-50 transition"
                           >
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-gray-700 truncate max-w-[180px]">{doc.original_name}</span>
-                            </div>
-                            <span className="text-xs text-blue-500 font-medium">다운로드</span>
+                            <span className="text-sm text-gray-700 truncate max-w-[200px]">{doc.original_name}</span>
+                            <span className="text-xs text-blue-500 font-medium flex-shrink-0 ml-2">다운로드</span>
                           </a>
                         ))}
                       </div>
@@ -264,7 +263,61 @@ rackDevices.forEach(d => {
 
               {/* 장비 리스트 뷰 */}
               {viewTab === 'list' && (
-                <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div>
+                  {/* 사이트 탭 + 통계 카드 */}
+                  <div className="bg-white rounded-xl shadow-sm p-5 mb-4">
+                    <div className="flex gap-3 mb-5">
+                      {[
+                        { key: '전체', label: '전체', count: selected.data.devices.length },
+                        { key: '본사', label: '본사', count: selected.data.devices.filter(d => d.site === '본사').length },
+                        { key: '하남IDC', label: '하남IDC', count: selected.data.devices.filter(d => d.site === '하남IDC').length },
+                      ].map(tab => (
+                        <button
+                          key={tab.key}
+                          onClick={() => setSnapshotFilterSite(tab.key)}
+                          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                          style={{
+                            backgroundColor: snapshotFilterSite === tab.key ? '#003DA5' : '#F4F6FA',
+                            color: snapshotFilterSite === tab.key ? 'white' : '#555',
+                            boxShadow: snapshotFilterSite === tab.key ? '0 4px 12px rgba(0,61,165,0.25)' : 'none',
+                            transform: snapshotFilterSite === tab.key ? 'scale(1.03)' : 'scale(1)',
+                          }}
+                        >
+                          <span>{tab.label}</span>
+                          <span className="px-2 py-0.5 rounded-full text-xs font-bold"
+                            style={{
+                              backgroundColor: snapshotFilterSite === tab.key ? 'rgba(255,255,255,0.25)' : '#E5E7EB',
+                              color: snapshotFilterSite === tab.key ? 'white' : '#555',
+                            }}>
+                            {tab.count}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-5 gap-4">
+                      {[
+                        { label: '전체 장비', value: selected.data.devices.filter(d => snapshotFilterSite === '전체' || d.site === snapshotFilterSite).length, color: '#003DA5', icon: '🖥️' },
+                        { label: '보안', value: selected.data.devices.filter(d => d.device_type === '보안' && (snapshotFilterSite === '전체' || d.site === snapshotFilterSite)).length, color: '#C62828', icon: '🔒' },
+                        { label: '네트워크', value: selected.data.devices.filter(d => d.device_type === '네트워크' && (snapshotFilterSite === '전체' || d.site === snapshotFilterSite)).length, color: '#1565C0', icon: '🌐' },
+                        { label: '서버', value: selected.data.devices.filter(d => d.device_type === '서버' && (snapshotFilterSite === '전체' || d.site === snapshotFilterSite)).length, color: '#2E7D32', icon: '⚙️' },
+                        { label: '기타', value: selected.data.devices.filter(d => (!d.device_type || d.device_type === '기타') && (snapshotFilterSite === '전체' || d.site === snapshotFilterSite)).length, color: '#6D4C41', icon: '📦' },
+                      ].map((stat) => (
+                        <div key={stat.label} className="rounded-xl p-4 flex items-center gap-4"
+                          style={{ backgroundColor: stat.color + '10', border: `1.5px solid ${stat.color}22` }}>
+                          <div className="text-3xl w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                            style={{ backgroundColor: stat.color + '18' }}>
+                            {stat.icon}
+                          </div>
+                          <div>
+                            <div className="text-2xl font-bold" style={{ color: stat.color }}>{stat.value}</div>
+                            <div className="text-xs text-gray-500 mt-0.5">{stat.label}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                   <table className="w-full text-sm">
                     <thead>
                       <tr style={{ backgroundColor: '#003DA5' }}>
@@ -274,7 +327,14 @@ rackDevices.forEach(d => {
                       </tr>
                     </thead>
                     <tbody>
-                      {selected.data.devices.map((device, idx) => {
+                      {[...selected.data.devices].filter(d => snapshotFilterSite === '전체' || d.site === snapshotFilterSite).sort((a, b) => {
+                        const siteOrder = { '본사': 0, '하남IDC': 1 };
+                        const siteA = siteOrder[a.site] ?? 99;
+                        const siteB = siteOrder[b.site] ?? 99;
+                        if (siteA !== siteB) return siteA - siteB;
+                        if (a.rack_id !== b.rack_id) return a.rack_id - b.rack_id;
+                        return b.u_position - a.u_position;
+                      }).map((device, idx) => {
                         const docs = selected.data.documents.filter(d => d.device_id === device.id);
                         return (
                           <tr key={device.id} className="border-b border-gray-100"
@@ -312,11 +372,7 @@ rackDevices.forEach(d => {
                                       rel="noreferrer"
                                       className="flex items-center gap-1 hover:opacity-70 transition"
                                     >
-                                      <span className="px-1.5 py-0.5 rounded text-xs"
-                                        style={{ backgroundColor: '#E8EEFF', color: '#003DA5' }}>
-                                        {doc.doc_type}
-                                      </span>
-                                      <span className="text-xs text-blue-400 truncate max-w-[80px]">{doc.original_name}</span>
+                                      <span className="text-xs text-blue-400 truncate max-w-[120px]">{doc.original_name}</span>
                                     </a>
                                   ))}
                                 </div>
@@ -330,6 +386,7 @@ rackDevices.forEach(d => {
                   {selected.data.devices.length === 0 && (
                     <div className="text-center py-16 text-gray-400">등록된 장비가 없습니다.</div>
                   )}
+                  </div>
                 </div>
               )}
             </div>
