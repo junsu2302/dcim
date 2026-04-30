@@ -709,13 +709,32 @@ function RackView({ rack, devices, allRacks, allDevices, onRefresh }) {
       <Toast toasts={toasts} />
       <style>{`@keyframes slideIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }`}</style>
       <div className="flex flex-col" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
-        <div className="rounded-2xl overflow-visible shadow-lg border border-gray-200 w-72">
+        <div className="rounded-2xl overflow-visible shadow-lg border border-gray-200" style={{ width: '280px' }}>
           <div className="text-white px-4 py-3" style={{ background: 'linear-gradient(135deg, #003DA5, #0055CC)' }}>
-            <div className="text-xs font-semibold uppercase tracking-widest mb-0.5 opacity-60">{rack.site}</div>
             <div className="text-xl font-bold tracking-wide">🖥️ RACK #{rack.rack_number}</div>
             <div className="text-xs mt-0.5 opacity-60">
               {devices.filter((d) => d.rack_id === rack.id).length}개 장비 /&nbsp;
               {totalU - devices.filter((d) => d.rack_id === rack.id).reduce((a, d) => a + (d.u_size || 1), 0)}U 여유
+            </div>
+            {/* 장비 구분별 현황 */}
+            <div className="flex gap-1 mt-2.5">
+              {[
+                { type: '보안', color: '#FF5252' },
+                { type: '네트워크', color: '#82B1FF' },
+                { type: '서버', color: '#69F0AE' },
+                { type: '기타', color: '#FFCC80' },
+              ].map(({ type, color }) => {
+                const count = devices.filter(d => d.rack_id === rack.id && (d.device_type === type || (type === '기타' && !d.device_type))).length;
+                if (count === 0) return null;
+                return (
+                  <div key={type} className="flex items-center gap-1 px-1.5 py-0.5 rounded-full whitespace-nowrap"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.15)', fontSize: '10px' }}>
+                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                    <span className="opacity-90">{type}</span>
+                    <span className="font-bold">{count}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 

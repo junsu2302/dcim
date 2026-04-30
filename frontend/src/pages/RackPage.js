@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { getDevices } from '../api/devices';
 import { getRacks, createRack, updateRack, deleteRack } from '../api/racks';
 import RackView from '../components/RackView';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { createSnapshot } from '../api/snapshots';
 
 const SITES = ['본사', '하남IDC'];
@@ -20,6 +20,7 @@ function RackPage() {
   const [showSnapshotModal, setShowSnapshotModal] = useState(false);
   const [snapshotMemo, setSnapshotMemo] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     fetchAll();
@@ -120,14 +121,14 @@ function RackPage() {
             📸 스냅샷 저장
           </button>
           <div className="flex items-center p-1 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
-            {[{ label: '랙 실장도', path: '/' }, { label: '장비 리스트', path: '/devices' }, { label: '이력 관리', path: '/snapshots' }].map((tab) => (
+            {[{ label: '대시보드', path: '/' }, { label: '랙 실장도', path: '/rack' }, { label: '장비 리스트', path: '/devices' }, { label: '이력 관리', path: '/snapshots' }].map((tab) => (
               <button
                 key={tab.path}
                 onClick={() => navigate(tab.path)}
                 className="px-4 py-1.5 rounded-md text-sm font-medium transition-all"
                 style={{
-                  backgroundColor: tab.path === '/' ? 'white' : 'transparent',
-                  color: tab.path === '/' ? '#003DA5' : 'rgba(255,255,255,0.7)',
+                  backgroundColor: location.pathname === tab.path ? 'white' : 'transparent',
+                color: location.pathname === tab.path ? '#003DA5' : 'rgba(255,255,255,0.7)',
                   minWidth: '80px',
                 }}
               >

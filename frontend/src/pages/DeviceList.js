@@ -52,7 +52,8 @@ function DeviceList() {
     });
 
   const NAV_TABS = [
-    { label: '랙 실장도', path: '/' },
+    { label: '대시보드', path: '/' },
+    { label: '랙 실장도', path: '/rack' },
     { label: '장비 리스트', path: '/devices' },
     { label: '이력 관리', path: '/snapshots' },
   ];
@@ -224,7 +225,7 @@ function DeviceList() {
                 { label: '도입일', width: '8%' },
                 { label: '유지보수 업체', width: '9%' },
                 { label: '랙번호', width: '7%' },
-                { label: '문서', width: '9%' },
+                { label: '첨부문서', width: '9%' },
               ].map((h) => (
                 <th key={h.label} className="px-4 py-3 text-left text-white font-medium text-sm whitespace-nowrap" style={{ width: h.width }}>{h.label}</th>
               ))}
