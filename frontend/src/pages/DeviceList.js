@@ -15,6 +15,7 @@ function DeviceList() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   useEffect(() => {
     fetchDevices();
@@ -58,7 +59,6 @@ function DeviceList() {
     { label: '랙 실장도', path: '/' },
     { label: '장비 리스트', path: '/devices' },
     { label: '이력 관리', path: '/snapshots' },
-    ...(user?.role === 'admin' ? [{ label: '사용자 관리', path: '/users' }] : []),
   ];
   const [showSnapshotModal, setShowSnapshotModal] = useState(false);
   const [snapshotMemo, setSnapshotMemo] = useState('');
@@ -110,24 +110,41 @@ function DeviceList() {
 
           <div className="w-px h-5 bg-white opacity-20"></div>
 
-          {/* 사용자 정보 */}
-          <div className="flex items-center gap-1.5 text-xs" style={{ color: 'rgba(255,255,255,0.8)' }}>
-            <span>👤</span>
-            <span>{user?.username}</span>
-            <span className="px-1.5 py-0.5 rounded-full text-xs font-medium"
-              style={{ backgroundColor: user?.role === 'admin' ? '#FFB81C' : 'rgba(255,255,255,0.2)', color: 'white' }}>
-              {user?.role === 'admin' ? '관리자' : '뷰어'}
-            </span>
+          {/* 사용자 정보 + 드롭다운 */}
+          <div className="relative">
+            <button
+              onClick={() => setShowUserMenu(prev => !prev)}
+              className="flex items-center gap-1.5 text-xs px-2 py-1.5 rounded-lg transition"
+              style={{ color: 'rgba(255,255,255,0.8)', backgroundColor: showUserMenu ? 'rgba(255,255,255,0.12)' : 'transparent' }}
+            >
+              <span>👤</span>
+              <span>{user?.username}</span>
+              <span className="px-1.5 py-0.5 rounded-full text-xs font-medium"
+                style={{ backgroundColor: user?.role === 'admin' ? '#FFB81C' : 'rgba(255,255,255,0.2)', color: 'white' }}>
+                {user?.role === 'admin' ? '관리자' : '뷰어'}
+              </span>
+              <span style={{ opacity: 0.6 }}>▾</span>
+            </button>
+            {showUserMenu && (
+              <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50" style={{ minWidth: '140px' }}>
+                {isAdmin && (
+                  <button
+                    onClick={() => { setShowUserMenu(false); navigate('/users'); }}
+                    className="w-full px-4 py-2.5 text-left text-xs font-medium text-gray-700 hover:bg-gray-50 transition flex items-center gap-2"
+                  >
+                    👥 사용자 관리
+                  </button>
+                )}
+                <button
+                  onClick={() => { setShowUserMenu(false); logout(); navigate('/login'); }}
+                  className="w-full px-4 py-2.5 text-left text-xs font-medium hover:bg-gray-50 transition flex items-center gap-2"
+                  style={{ color: '#C62828' }}
+                >
+                  🚪 로그아웃
+                </button>
+              </div>
+            )}
           </div>
-
-          {/* 로그아웃 */}
-          <button
-            onClick={() => { logout(); navigate('/login'); }}
-            className="text-xs font-medium px-3 py-1.5 rounded-lg transition"
-            style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.8)' }}
-          >
-            로그아웃
-          </button>
         </div>
       </div>
 {/* 스냅샷 저장 모달 */}

@@ -7,7 +7,6 @@ const NAV_TABS = [
   { label: '랙 실장도', path: '/' },
   { label: '장비 리스트', path: '/devices' },
   { label: '이력 관리', path: '/snapshots' },
-  { label: '사용자 관리', path: '/users' },
 ];
 
 function UserManagePage() {
@@ -18,6 +17,7 @@ function UserManagePage() {
   const [error, setError] = useState('');
   const { user, token, logout } = useAuth();
   const navigate = useNavigate();
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   useEffect(() => {
     if (user?.role !== 'admin') {
@@ -98,17 +98,37 @@ function UserManagePage() {
             ))}
           </div>
           <div className="w-px h-5 bg-white opacity-20"></div>
-          <div className="flex items-center gap-1.5 text-xs" style={{ color: 'rgba(255,255,255,0.8)' }}>
-            <span>👤</span>
-            <span>{user?.username}</span>
-            <span className="px-1.5 py-0.5 rounded-full text-xs font-medium"
-              style={{ backgroundColor: '#FFB81C', color: 'white' }}>관리자</span>
+          {/* 사용자 정보 + 드롭다운 */}
+          <div className="relative">
+            <button
+              onClick={() => setShowUserMenu(prev => !prev)}
+              className="flex items-center gap-1.5 text-xs px-2 py-1.5 rounded-lg transition"
+              style={{ color: 'rgba(255,255,255,0.8)', backgroundColor: showUserMenu ? 'rgba(255,255,255,0.12)' : 'transparent' }}
+            >
+              <span>👤</span>
+              <span>{user?.username}</span>
+              <span className="px-1.5 py-0.5 rounded-full text-xs font-medium"
+                style={{ backgroundColor: '#FFB81C', color: 'white' }}>관리자</span>
+              <span style={{ opacity: 0.6 }}>▾</span>
+            </button>
+            {showUserMenu && (
+              <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50" style={{ minWidth: '140px' }}>
+                <button
+                  onClick={() => { setShowUserMenu(false); navigate('/users'); }}
+                  className="w-full px-4 py-2.5 text-left text-xs font-medium text-gray-700 hover:bg-gray-50 transition flex items-center gap-2"
+                >
+                  👥 사용자 관리
+                </button>
+                <button
+                  onClick={() => { setShowUserMenu(false); logout(); navigate('/login'); }}
+                  className="w-full px-4 py-2.5 text-left text-xs font-medium hover:bg-gray-50 transition flex items-center gap-2"
+                  style={{ color: '#C62828' }}
+                >
+                  🚪 로그아웃
+                </button>
+              </div>
+            )}
           </div>
-          <button onClick={() => { logout(); navigate('/login'); }}
-            className="text-xs font-medium px-3 py-1.5 rounded-lg transition"
-            style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.8)' }}>
-            로그아웃
-          </button>
         </div>
       </div>
 
