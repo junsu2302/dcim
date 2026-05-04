@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { getDevices } from '../api/devices';
 import { getRacks, createRack, updateRack, deleteRack } from '../api/racks';
 import RackView from '../components/RackView';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { createSnapshot } from '../api/snapshots';
+import { useAuth } from '../context/AuthContext';
 
 const SITES = ['본사', '하남IDC'];
 
@@ -20,7 +21,8 @@ function RackPage() {
   const [showSnapshotModal, setShowSnapshotModal] = useState(false);
   const [snapshotMemo, setSnapshotMemo] = useState('');
   const navigate = useNavigate();
-  const location = useLocation();
+  const { user, logout } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
     fetchAll();
@@ -86,56 +88,72 @@ function RackPage() {
   return (
     <div className="min-h-screen bg-gray-100">
       {/* 상단 네비게이션 */}
-      <div className="text-white px-8 py-4 flex justify-between items-center shadow-lg" style={{ backgroundColor: '#003DA5' }}>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition" onClick={() => navigate('/')}>
-            <img src={require('../assets/header_logo.png')} alt="IBK시스템" style={{ height: '32px' }} />
-            <div className="w-px h-6 bg-white opacity-30"></div>
-            <h1 className="text-lg font-bold tracking-wide text-white">IT 인프라 관리 시스템</h1>
-          </div>
-          {/* Site 탭 */}
-          <div className="flex gap-1 ml-6">
-            {['전체', ...SITES].map((site) => (
-              <button
-                key={site}
-                onClick={() => setSelectedSite(site)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition`}
-              style={{ backgroundColor: selectedSite === site ? '#FFB81C' : 'transparent', color: 'white' }}
-              >
-                {site}
-                {site !== '전체' && (
-                  <span className="ml-1.5 text-xs opacity-70">
-                    ({racks.filter((r) => r.site === site).length})
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+      <div className="text-white px-8 py-3 flex justify-between items-center" style={{ backgroundColor: '#003DA5', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+        {/* 왼쪽: 로고 */}
+        <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition" onClick={() => navigate('/')}>
+          <img src={require('../assets/header_logo.png')} alt="IBK시스템" style={{ height: '30px' }} />
+          <div className="w-px h-5 bg-white opacity-20"></div>
+          <span className="text-sm font-semibold tracking-wide opacity-90">IT 인프라 관리 시스템</span>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowSnapshotModal(true)}
-            className="text-sm font-medium px-4 py-1.5 rounded-lg transition hover:opacity-90"
-            style={{ backgroundColor: '#FFB81C', color: 'white' }}
-          >
-            📸 스냅샷 저장
-          </button>
-          <div className="flex items-center p-1 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
-            {[{ label: '대시보드', path: '/' }, { label: '랙 실장도', path: '/rack' }, { label: '장비 리스트', path: '/devices' }, { label: '이력 관리', path: '/snapshots' }].map((tab) => (
+        {/* 오른쪽 */}
+        <div className="flex items-center gap-2">
+          {/* 탭 네비게이션 */}
+          <div className="flex items-center bg-white bg-opacity-10 rounded-lg p-1">
+            {[
+              { label: '랙 실장도', path: '/' },
+              { label: '장비 리스트', path: '/devices' },
+              { label: '이력 관리', path: '/snapshots' },
+              ...(user?.role === 'admin' ? [{ label: '사용자 관리', path: '/users' }] : []),
+            ].map((tab) => (
               <button
                 key={tab.path}
                 onClick={() => navigate(tab.path)}
-                className="px-4 py-1.5 rounded-md text-sm font-medium transition-all"
+                className="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
                 style={{
-                  backgroundColor: location.pathname === tab.path ? 'white' : 'transparent',
-                color: location.pathname === tab.path ? '#003DA5' : 'rgba(255,255,255,0.7)',
-                  minWidth: '80px',
+                  backgroundColor: tab.path === '/' ? 'white' : 'transparent',
+                  color: tab.path === '/' ? '#003DA5' : 'rgba(255,255,255,0.75)',
                 }}
               >
                 {tab.label}
               </button>
             ))}
           </div>
+
+          <div className="w-px h-5 bg-white opacity-20"></div>
+
+          {/* 스냅샷 저장 (관리자만) */}
+          {isAdmin ? (
+            <button
+              onClick={() => setShowSnapshotModal(true)}
+              className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition hover:opacity-90"
+              style={{ backgroundColor: '#FFB81C', color: 'white' }}
+            >
+              📸 스냅샷 저장
+            </button>
+          ) : (
+            <div style={{ width: '100px' }} />
+          )}
+
+          <div className="w-px h-5 bg-white opacity-20"></div>
+
+          {/* 사용자 정보 */}
+          <div className="flex items-center gap-1.5 text-xs" style={{ color: 'rgba(255,255,255,0.8)' }}>
+            <span>👤</span>
+            <span>{user?.username}</span>
+            <span className="px-1.5 py-0.5 rounded-full text-xs font-medium"
+              style={{ backgroundColor: user?.role === 'admin' ? '#FFB81C' : 'rgba(255,255,255,0.2)', color: 'white' }}>
+              {user?.role === 'admin' ? '관리자' : '뷰어'}
+            </span>
+          </div>
+
+          {/* 로그아웃 */}
+          <button
+            onClick={() => { logout(); navigate('/login'); }}
+            className="text-xs font-medium px-3 py-1.5 rounded-lg transition"
+            style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.8)' }}
+          >
+            로그아웃
+          </button>
         </div>
       </div>
 {/* 스냅샷 저장 모달 */}
@@ -253,21 +271,48 @@ function RackPage() {
 
       {/* 랙 실장도 본문 */}
       <div className="p-8">
+        {/* 사이트 필터 */}
+        <div className="flex gap-2 mb-6">
+          {['전체', ...SITES].map((site) => (
+            <button
+              key={site}
+              onClick={() => setSelectedSite(site)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+              style={{
+                backgroundColor: selectedSite === site ? '#003DA5' : 'white',
+                color: selectedSite === site ? 'white' : '#555',
+                border: selectedSite === site ? 'none' : '1px solid #E5E7EB',
+                boxShadow: selectedSite === site ? '0 4px 12px rgba(0,61,165,0.2)' : 'none',
+              }}
+            >
+              {site}
+              {site !== '전체' && (
+                <span className="px-1.5 py-0.5 rounded-full text-xs font-bold"
+                  style={{
+                    backgroundColor: selectedSite === site ? 'rgba(255,255,255,0.2)' : '#F3F4F6',
+                    color: selectedSite === site ? 'white' : '#666',
+                  }}>
+                  {racks.filter((r) => r.site === site).length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
         {filteredRacks.length === 0 ? (
           <div className="text-center py-20 text-gray-400 bg-white rounded-xl shadow flex flex-col items-center gap-4">
             <div>등록된 랙이 없습니다.</div>
-            <div className="flex gap-3">
-              {SITES.map((site) => (
-                <button
-                  key={site}
-                  onClick={() => { setAddRackTargetSite(site); setNewRackTotalU(42); setShowAddRack(true); }}
-                  className="text-white px-4 py-1.5 rounded-lg text-sm font-medium transition hover:opacity-90"
-                  style={{ backgroundColor: '#003DA5' }}
-                >
-                  + {site} 랙 추가
-                </button>
-              ))}
-            </div>
+              {isAdmin && (
+              <div className="flex gap-3">
+                {SITES.map((site) => (
+                  <button
+                    key={site}
+                    onClick={() => { setAddRackTargetSite(site); setNewRackTotalU(42); setShowAddRack(true); }}
+                    className="text-white px-4 py-2 rounded-xl text-sm font-medium transition hover:opacity-90"
+                    style={{ backgroundColor: '#003DA5' }}
+                  >+ {site} 랙 추가</button>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex flex-col gap-10">
@@ -286,13 +331,13 @@ function RackPage() {
                       </span>
                     </div>
                     <div className="flex-1 h-px bg-gray-200"></div>
-                    <button
-                      onClick={() => { setAddRackTargetSite(site); setNewRackTotalU(42); setShowAddRack(true); }}
-                      className="text-white px-4 py-1.5 rounded-lg text-sm font-medium transition hover:opacity-90"
-                      style={{ backgroundColor: '#003DA5' }}
-                    >
-                      + 랙 추가
-                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => { setAddRackTargetSite(site); setNewRackTotalU(42); setShowAddRack(true); }}
+                        className="flex items-center gap-1.5 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition hover:opacity-90"
+                        style={{ backgroundColor: '#003DA5' }}
+                      >+ 랙 추가</button>
+                    )}
                   </div>
 
                   {/* 랙 카드들 */}
@@ -306,12 +351,16 @@ function RackPage() {
                     </div>
                   )}
                         {/* 랙 수정/삭제 */}
-                        <div className="flex justify-end gap-2">
-                          <button onClick={() => { setEditingRack(rack.id); setEditForm({ rack_number: rack.rack_number, site: rack.site, total_u: rack.total_u || 42 }); setEditError(null); }}
-                            className="text-xs text-yellow-500 hover:text-yellow-600 transition">✏️ 수정</button>
-                          <button onClick={() => handleDeleteRack(rack)}
-                            className="text-xs text-red-400 hover:text-red-600 transition">🗑️ 삭제</button>
-                        </div>
+                          {isAdmin && (
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => { setEditingRack(rack.id); setEditForm({ rack_number: rack.rack_number, site: rack.site, total_u: rack.total_u || 42 }); setEditError(null); }}
+                                className="text-xs text-gray-400 hover:text-yellow-500 transition flex items-center gap-1">✏️ 수정</button>
+                              <button
+                                onClick={() => handleDeleteRack(rack)}
+                                className="text-xs text-gray-400 hover:text-red-500 transition flex items-center gap-1">🗑️ 삭제</button>
+                            </div>
+                          )}
                         <RackView key={`${rack.id}-${renderKey}`} rack={rack} devices={devices} allRacks={racks} allDevices={devices} onRefresh={fetchAll} />
                       </div>
                     ))}

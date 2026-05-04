@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { getDevices } from '../api/devices';
 import { getRacks } from '../api/racks';
+import { getDevices } from '../api/devices';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { createSnapshot } from '../api/snapshots';
+import { useAuth } from '../context/AuthContext';
 import { getDocuments, getDownloadUrl } from '../api/documents';
 
 function DeviceList() {
@@ -12,6 +13,8 @@ function DeviceList() {
   const [deviceDocs, setDeviceDocs] = useState({});
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, logout } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
     fetchDevices();
@@ -52,10 +55,10 @@ function DeviceList() {
     });
 
   const NAV_TABS = [
-    { label: '대시보드', path: '/' },
-    { label: '랙 실장도', path: '/rack' },
+    { label: '랙 실장도', path: '/' },
     { label: '장비 리스트', path: '/devices' },
     { label: '이력 관리', path: '/snapshots' },
+    ...(user?.role === 'admin' ? [{ label: '사용자 관리', path: '/users' }] : []),
   ];
   const [showSnapshotModal, setShowSnapshotModal] = useState(false);
   const [snapshotMemo, setSnapshotMemo] = useState('');
@@ -63,36 +66,68 @@ function DeviceList() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#F4F6FA' }}>
       {/* 헤더 */}
-      <div className="text-white px-8 py-4 flex justify-between items-center shadow-lg" style={{ backgroundColor: '#003DA5' }}>
+      <div className="text-white px-8 py-3 flex justify-between items-center" style={{ backgroundColor: '#003DA5', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+        {/* 왼쪽: 로고 */}
         <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition" onClick={() => navigate('/')}>
-          <img src={require('../assets/header_logo.png')} alt="IBK시스템" style={{ height: '32px' }} />
-          <div className="w-px h-6 bg-white opacity-30"></div>
-          <h1 className="text-lg font-bold tracking-wide text-white">IT 인프라 관리 시스템</h1>
+          <img src={require('../assets/header_logo.png')} alt="IBK시스템" style={{ height: '30px' }} />
+          <div className="w-px h-5 bg-white opacity-20"></div>
+          <span className="text-sm font-semibold tracking-wide opacity-90">IT 인프라 관리 시스템</span>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowSnapshotModal(true)}
-            className="text-sm font-medium px-4 py-1.5 rounded-lg transition hover:opacity-90"
-            style={{ backgroundColor: '#FFB81C', color: 'white' }}
-          >
-            📸 스냅샷 저장
-          </button>
-          <div className="flex items-center p-1 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
+
+        {/* 오른쪽 */}
+        <div className="flex items-center gap-2">
+          {/* 탭 네비게이션 */}
+          <div className="flex items-center bg-white bg-opacity-10 rounded-lg p-1">
             {NAV_TABS.map((tab) => (
               <button
                 key={tab.path}
                 onClick={() => navigate(tab.path)}
-                className="px-4 py-1.5 rounded-md text-sm font-medium transition-all"
+                className="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
                 style={{
                   backgroundColor: location.pathname === tab.path ? 'white' : 'transparent',
-                  color: location.pathname === tab.path ? '#003DA5' : 'rgba(255,255,255,0.7)',
-                  minWidth: '80px',
+                  color: location.pathname === tab.path ? '#003DA5' : 'rgba(255,255,255,0.75)',
                 }}
               >
                 {tab.label}
               </button>
             ))}
           </div>
+
+          <div className="w-px h-5 bg-white opacity-20"></div>
+
+          {/* 스냅샷 저장 (관리자만) */}
+          {isAdmin ? (
+            <button
+              onClick={() => setShowSnapshotModal(true)}
+              className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition hover:opacity-90"
+              style={{ backgroundColor: '#FFB81C', color: 'white' }}
+            >
+              📸 스냅샷 저장
+            </button>
+          ) : (
+            <div style={{ width: '100px' }} />
+          )}
+
+          <div className="w-px h-5 bg-white opacity-20"></div>
+
+          {/* 사용자 정보 */}
+          <div className="flex items-center gap-1.5 text-xs" style={{ color: 'rgba(255,255,255,0.8)' }}>
+            <span>👤</span>
+            <span>{user?.username}</span>
+            <span className="px-1.5 py-0.5 rounded-full text-xs font-medium"
+              style={{ backgroundColor: user?.role === 'admin' ? '#FFB81C' : 'rgba(255,255,255,0.2)', color: 'white' }}>
+              {user?.role === 'admin' ? '관리자' : '뷰어'}
+            </span>
+          </div>
+
+          {/* 로그아웃 */}
+          <button
+            onClick={() => { logout(); navigate('/login'); }}
+            className="text-xs font-medium px-3 py-1.5 rounded-lg transition"
+            style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.8)' }}
+          >
+            로그아웃
+          </button>
         </div>
       </div>
 {/* 스냅샷 저장 모달 */}

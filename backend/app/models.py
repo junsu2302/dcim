@@ -57,3 +57,13 @@ class Snapshot(Base):
     saved_at = Column(DateTime, default=datetime.utcnow)
     memo = Column(String, default='')
     data = Column(Text, nullable=False)  # 전체 랙+장비+문서 JSON
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, nullable=False)
+    password = Column(String, nullable=False)
+    role = Column(String, default='viewer')  # 'admin' or 'viewer'
+    created_at = Column(DateTime, default=datetime.utcnow)

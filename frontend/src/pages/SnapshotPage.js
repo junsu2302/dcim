@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getSnapshots, getSnapshot, deleteSnapshot } from '../api/snapshots';
+import { getSnapshots, getSnapshot, deleteSnapshot, createSnapshot } from '../api/snapshots';
+import { useAuth } from '../context/AuthContext';
 
 const DEVICE_TYPES = {
   '보안': { bg: '#C62828' },
@@ -9,11 +10,11 @@ const DEVICE_TYPES = {
   '기타': { bg: '#6D4C41' },
 };
 
-const NAV_TABS = [
-  { label: '대시보드', path: '/' },
-  { label: '랙 실장도', path: '/rack' },
+const NAV_TABS = (role) => [
+  { label: '랙 실장도', path: '/' },
   { label: '장비 리스트', path: '/devices' },
   { label: '이력 관리', path: '/snapshots' },
+  ...(role === 'admin' ? [{ label: '사용자 관리', path: '/users' }] : []),
 ];
 
 function SnapshotPage() {
@@ -22,7 +23,11 @@ function SnapshotPage() {
   const [viewTab, setViewTab] = useState('rack');
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [snapshotFilterSite, setSnapshotFilterSite] = useState('전체');
+  const [showSnapshotModal, setShowSnapshotModal] = useState(false);
+  const [snapshotMemo, setSnapshotMemo] = useState('');
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   useEffect(() => { fetchSnapshots(); }, []);
 
@@ -45,33 +50,110 @@ function SnapshotPage() {
   };
 
   return (
+    <>
     <div className="min-h-screen" style={{ backgroundColor: '#F4F6FA' }}>
       {/* 헤더 */}
-      <div className="text-white px-8 py-4 flex justify-between items-center shadow-lg" style={{ backgroundColor: '#003DA5' }}>
+      <div className="text-white px-8 py-3 flex justify-between items-center" style={{ backgroundColor: '#003DA5', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+        {/* 왼쪽: 로고 */}
         <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition" onClick={() => navigate('/')}>
-          <img src={require('../assets/header_logo.png')} alt="IBK시스템" style={{ height: '32px' }} />
-          <div className="w-px h-6 bg-white opacity-30"></div>
-          <h1 className="text-lg font-bold tracking-wide text-white">IT 인프라 관리 시스템</h1>
+          <img src={require('../assets/header_logo.png')} alt="IBK시스템" style={{ height: '30px' }} />
+          <div className="w-px h-5 bg-white opacity-20"></div>
+          <span className="text-sm font-semibold tracking-wide opacity-90">IT 인프라 관리 시스템</span>
         </div>
-        <div className="flex items-center p-1 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
-          {NAV_TABS.map((tab) => (
+
+        {/* 오른쪽 */}
+        <div className="flex items-center gap-2">
+          {/* 탭 네비게이션 */}
+          <div className="flex items-center bg-white bg-opacity-10 rounded-lg p-1">
+            {NAV_TABS(user?.role).map((tab) => (
+              <button
+                key={tab.path}
+                onClick={() => navigate(tab.path)}
+                className="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+                style={{
+                  backgroundColor: tab.path === '/snapshots' ? 'white' : 'transparent',
+                  color: tab.path === '/snapshots' ? '#003DA5' : 'rgba(255,255,255,0.75)',
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="w-px h-5 bg-white opacity-20"></div>
+
+          {/* 스냅샷 저장 (관리자만) */}
+          {isAdmin ? (
             <button
-              key={tab.path}
-              onClick={() => navigate(tab.path)}
-              className="px-4 py-1.5 rounded-md text-sm font-medium transition-all"
-              style={{
-                backgroundColor: tab.path === '/snapshots' ? 'white' : 'transparent',
-                color: tab.path === '/snapshots' ? '#003DA5' : 'rgba(255,255,255,0.7)',
-                minWidth: '80px',
-              }}
+              onClick={() => setShowSnapshotModal(true)}
+              className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition hover:opacity-90"
+              style={{ backgroundColor: '#FFB81C', color: 'white' }}
             >
-              {tab.label}
+              📸 스냅샷 저장
             </button>
-          ))}
+          ) : (
+            <div style={{ width: '100px' }} />
+          )}
+
+          <div className="w-px h-5 bg-white opacity-20"></div>
+
+          {/* 사용자 정보 */}
+          <div className="flex items-center gap-1.5 text-xs" style={{ color: 'rgba(255,255,255,0.8)' }}>
+            <span>👤</span>
+            <span>{user?.username}</span>
+            <span className="px-1.5 py-0.5 rounded-full text-xs font-medium"
+              style={{ backgroundColor: user?.role === 'admin' ? '#FFB81C' : 'rgba(255,255,255,0.2)', color: 'white' }}>
+              {user?.role === 'admin' ? '관리자' : '뷰어'}
+            </span>
+          </div>
+
+          {/* 로그아웃 */}
+          <button
+            onClick={() => { logout(); navigate('/login'); }}
+            className="text-xs font-medium px-3 py-1.5 rounded-lg transition"
+            style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.8)' }}
+          >
+            로그아웃
+          </button>
         </div>
       </div>
 
-      <div className="flex h-[calc(100vh-68px)]">
+      {showSnapshotModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-96 border border-gray-100">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-1 h-5 rounded-full" style={{ backgroundColor: '#FFB81C' }}></div>
+              <h3 className="text-base font-bold" style={{ color: '#003DA5' }}>스냅샷 저장</h3>
+            </div>
+            <p className="text-xs text-gray-400 mb-4 ml-3">현재 전체 랙/장비 현황을 저장합니다.</p>
+            <label className="text-xs font-medium text-gray-500 mb-1 block">메모 (선택)</label>
+            <input
+              type="text"
+              value={snapshotMemo}
+              onChange={(e) => setSnapshotMemo(e.target.value)}
+              placeholder="메모를 입력하세요."
+              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+            />
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={async () => {
+                  await createSnapshot(snapshotMemo);
+                  setShowSnapshotModal(false);
+                  setSnapshotMemo('');
+                  fetchSnapshots();
+                }}
+                className="flex-1 text-white py-2.5 rounded-xl text-sm font-semibold transition hover:opacity-90"
+                style={{ backgroundColor: '#003DA5' }}
+              >저장</button>
+              <button
+                onClick={() => { setShowSnapshotModal(false); setSnapshotMemo(''); }}
+                className="flex-1 bg-gray-100 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-200 transition"
+              >취소</button>
+            </div>
+          </div>
+        </div>
+      )}
+        <div className="flex h-[calc(100vh-52px)]">
         {/* 좌측 스냅샷 목록 */}
         <div className="w-72 bg-white border-r border-gray-200 flex flex-col">
           <div className="px-4 py-3 border-b border-gray-100">
@@ -97,10 +179,12 @@ function SnapshotPage() {
                       {new Date(s.saved_at).toLocaleString('ko-KR')}
                     </div>
                   </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }}
-                    className="text-xs text-red-400 hover:text-red-600 transition ml-2 flex-shrink-0"
-                  >삭제</button>
+                  {isAdmin && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }}
+                      className="text-xs text-red-400 hover:text-red-600 transition ml-2 flex-shrink-0"
+                    >삭제</button>
+                  )}
                 </div>
               </div>
             ))}
@@ -394,7 +478,8 @@ rackDevices.forEach(d => {
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 

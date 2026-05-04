@@ -4,6 +4,7 @@ import { HTML5Backend, getEmptyImage } from 'react-dnd-html5-backend';
 import { createDevice, updateDevice, deleteDevice } from '../api/devices';
 import { getDeviceHistory } from '../api/history';
 import { getDocuments, uploadDocument, deleteDocument, getDownloadUrl } from '../api/documents';
+import { useAuth } from '../context/AuthContext';
 
 const ITEM_TYPE = 'DEVICE';
 const DEVICE_TYPES = {
@@ -168,6 +169,8 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
 
   const selectedRack = allRacks.find((r) => r.id === parseInt(form.rack_id));
   const isEdit = !!slot?.device;
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   const TABS = isEdit
     ? [{ key: 'info', label: '장비 정보' }, { key: 'documents', label: '문서' }]
@@ -330,7 +333,7 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
           {tab === 'documents' && (
             <div className="flex flex-col gap-3">
               {/* 업로드 */}
-              <div
+              {isAdmin && <div
                 className="flex flex-col items-center justify-center gap-2 p-5 rounded-xl border-2 border-dashed cursor-pointer transition-all"
                 style={{
                   borderColor: uploading ? '#003DA5' : '#D1D5DB',
@@ -347,7 +350,7 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
                   if (!file) return;
                   setPendingFile(file);
                 }}
-              >
+>
                 <div className="text-2xl">{uploading ? '⏳' : '📎'}</div>
                 <div className="text-sm font-semibold" style={{ color: uploading ? '#003DA5' : '#555' }}>
                   {uploading ? '업로드 중...' : '클릭 또는 파일을 여기에 드래그'}
@@ -360,8 +363,8 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
                   onChange={handleUpload}
                   disabled={uploading}
                 />
-              </div>
-{/* 선택된 파일 미리보기 */}
+              </div>}
+              {/* 선택된 파일 미리보기 */}
               {pendingFile && (
                 <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-blue-200 bg-blue-50">
                   <span className="text-blue-500 flex-shrink-0">📄</span>
@@ -383,8 +386,10 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
                   <div className="flex gap-2 flex-shrink-0 ml-2">
                     <a href={getDownloadUrl(doc.id)} target="_blank" rel="noreferrer"
                       className="text-xs text-blue-500 hover:text-blue-700 font-medium transition">다운로드</a>
-                    <button onClick={() => handleDeleteDoc(doc.id)}
-                      className="text-xs text-red-400 hover:text-red-600 transition">삭제</button>
+                    {isAdmin && (
+                      <button onClick={() => handleDeleteDoc(doc.id)}
+                        className="text-xs text-red-400 hover:text-red-600 transition">삭제</button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -395,12 +400,12 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
         {/* 하단 버튼 */}
         <div className="px-6 py-4 border-t border-gray-100 flex justify-between">
           <div className="flex gap-2">
-            {tab === 'info' && (
+            {tab === 'info' && isAdmin && (
               <button onClick={handleSave}
                 className="text-white px-4 py-2 rounded-lg text-sm transition hover:opacity-90"
                 style={{ backgroundColor: '#003DA5' }}>저장</button>
             )}
-            {tab === 'documents' && pendingFile && (
+            {tab === 'documents' && pendingFile && isAdmin && (
               <button
                 onClick={handleSaveDoc}
                 disabled={uploading}
@@ -413,7 +418,7 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
             <button onClick={onClose}
               className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-300 transition">닫기</button>
           </div>
-          {tab === 'info' && isEdit && (
+          {tab === 'info' && isEdit && isAdmin && (
             <button onClick={handleDelete}
               className="bg-red-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-600 transition">🗑️ 삭제</button>
           )}
