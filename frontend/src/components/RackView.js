@@ -4,6 +4,7 @@ import { HTML5Backend, getEmptyImage } from 'react-dnd-html5-backend';
 import { createDevice, updateDevice, deleteDevice } from '../api/devices';
 import { getDeviceHistory } from '../api/history';
 import { getDocuments, uploadDocument, deleteDocument, getDownloadUrl } from '../api/documents';
+import { getVMs, createVM, updateVM, deleteVM } from '../api/vms';
 import { useAuth } from '../context/AuthContext';
 
 const ITEM_TYPE = 'DEVICE';
@@ -11,6 +12,7 @@ const DEVICE_TYPES = {
   '보안': { bg: '#C62828', hover: '#B71C1C', light: '#FFEBEE' },
   '네트워크': { bg: '#1565C0', hover: '#0D47A1', light: '#E3F2FD' },
   '서버': { bg: '#2E7D32', hover: '#1B5E20', light: '#E8F5E9' },
+  'VM서버': { bg: '#6A1B9A', hover: '#4A148C', light: '#F3E5F5' },
   '기타': { bg: '#6D4C41', hover: '#4E342E', light: '#EFEBE9' },
 };
 // 토스트 컴포넌트
@@ -65,11 +67,16 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
   const [docType] = useState('품의서');
   const [uploading, setUploading] = useState(false);
   const [pendingFile, setPendingFile] = useState(null);
+  const [vms, setVMs] = useState([]);
+  const [showVMForm, setShowVMForm] = useState(false);
+  const [editingVM, setEditingVM] = useState(null);
+  const [vmForm, setVMForm] = useState({ name: '', ip_address: '', os: '', host_nm: '', cpu: '', core: '', ram_gb: '' });
 
   useEffect(() => {
     if (slot?.device?.id) {
       getDeviceHistory(slot.device.id).then(r => setHistory(r.data)).catch(() => {});
       getDocuments(slot.device.id).then(r => setDocuments(r.data)).catch(() => {});
+      getVMs(slot.device.id).then(r => setVMs(r.data)).catch(() => {});
     }
   }, [slot?.device?.id]);
 
@@ -172,9 +179,16 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
 
+
+  const isVMServer = slot?.device?.device_type === 'VM서버';
   const TABS = isEdit
-    ? [{ key: 'info', label: '장비 정보' }, { key: 'documents', label: '문서' }]
+    ? [
+        { key: 'info', label: '장비 정보' },
+        ...(isVMServer ? [{ key: 'vms', label: `VM (${vms.length})` }] : []),
+        { key: 'documents', label: '문서' },
+      ]
     : [{ key: 'info', label: '장비 정보' }];
+
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -290,6 +304,102 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
                           <span className="text-gray-600">{String(v ?? '-')}</span>
                         </div>
                       ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {/* VM 탭 */}
+          {tab === 'vms' && (
+            <div className="flex flex-col gap-3">
+              {/* VM 추가 버튼 */}
+              {isAdmin && !showVMForm && (
+                <button
+                  onClick={() => { setShowVMForm(true); setEditingVM(null); setVMForm({ name: '', ip_address: '', os: '', purpose: '' }); }}
+                  className="w-full py-2 rounded-xl text-sm font-medium border-2 border-dashed border-gray-200 text-gray-400 hover:border-blue-300 hover:text-blue-400 transition"
+                >
+                  + VM 추가
+                </button>
+              )}
+
+              {/* VM 추가/수정 폼 */}
+              {showVMForm && isAdmin && (
+                <div className="p-4 rounded-xl border border-blue-100 bg-blue-50 flex flex-col gap-2">
+                  <div className="text-xs font-semibold text-blue-700 mb-1">{editingVM ? 'VM 수정' : '새 VM 추가'}</div>
+                  {[
+                    { label: 'VM 이름', key: 'name', required: true },
+                    { label: 'IP 주소', key: 'ip_address' },
+                    { label: 'OS', key: 'os' },
+                    { label: 'HOST_NM', key: 'host_nm' },
+                    { label: 'CPU', key: 'cpu' },
+                    { label: 'CORE', key: 'core' },
+                    { label: 'RAM(GB)', key: 'ram_gb' },
+                  ].map(({ label, key, required }) => (
+                    <div key={key} className="flex items-center gap-2">
+                      <label className="text-xs text-gray-500 w-16 flex-shrink-0">{label}{required && <span className="text-red-400">*</span>}</label>
+                      <input
+                        type="text"
+                        value={vmForm[key]}
+                        onChange={(e) => setVMForm({ ...vmForm, [key]: e.target.value })}
+                        className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-200"
+                      />
+                    </div>
+                  ))}
+                  <div className="flex gap-2 mt-1">
+                    <button
+                      onClick={async () => {
+                        if (!vmForm.name) return;
+                        if (editingVM) {
+                          await updateVM(editingVM.id, vmForm);
+                        } else {
+                          await createVM(slot.device.id, vmForm);
+                        }
+                        const res = await getVMs(slot.device.id);
+                        setVMs(res.data);
+                        setShowVMForm(false);
+                        setEditingVM(null);
+                      }}
+                      className="flex-1 text-white py-1.5 rounded-lg text-xs font-semibold transition hover:opacity-90"
+                      style={{ backgroundColor: '#003DA5' }}
+                    >저장</button>
+                    <button
+                      onClick={() => { setShowVMForm(false); setEditingVM(null); }}
+                      className="flex-1 bg-gray-200 text-gray-600 py-1.5 rounded-lg text-xs font-semibold hover:bg-gray-300 transition"
+                    >취소</button>
+                  </div>
+                </div>
+              )}
+
+              {/* VM 목록 */}
+              {vms.length === 0 && !showVMForm ? (
+                <div className="text-center py-8 text-gray-400 text-sm">등록된 VM이 없습니다.</div>
+              ) : vms.map((vm) => (
+                <div key={vm.id} className="p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="text-sm font-semibold text-gray-800">{vm.name}</div>
+                    {isAdmin && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { setEditingVM(vm); setVMForm({ name: vm.name, ip_address: vm.ip_address || '', os: vm.os || '', purpose: vm.purpose || '' }); setShowVMForm(true); }}
+                          className="text-xs text-blue-400 hover:text-blue-600 transition">수정</button>
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm('VM을 삭제하시겠습니까?')) return;
+                            await deleteVM(vm.id);
+                            const res = await getVMs(slot.device.id);
+                            setVMs(res.data);
+                          }}
+                          className="text-xs text-red-400 hover:text-red-600 transition">삭제</button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-0.5 text-xs text-gray-500">
+                    {vm.ip_address && <div className="flex gap-2"><span className="text-gray-400 w-16">IP</span><span className="font-mono">{vm.ip_address}</span></div>}
+                    {vm.os && <div className="flex gap-2"><span className="text-gray-400 w-16">OS</span><span>{vm.os}</span></div>}
+                    {vm.host_nm && <div className="flex gap-2"><span className="text-gray-400 w-16">HOST_NM</span><span>{vm.host_nm}</span></div>}
+                    {vm.cpu && <div className="flex gap-2"><span className="text-gray-400 w-16">CPU</span><span>{vm.cpu}</span></div>}
+                    {vm.core && <div className="flex gap-2"><span className="text-gray-400 w-16">CORE</span><span>{vm.core}</span></div>}
+                    {vm.ram_gb && <div className="flex gap-2"><span className="text-gray-400 w-16">RAM(GB)</span><span>{vm.ram_gb}</span></div>}
                   </div>
                 </div>
               ))}
@@ -429,6 +539,7 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
 }
 function DraggableDevice({ device, size, u, onClick, onDrop, allDevices, rackId }) {
   const [showTooltip, setShowTooltip] = useState(false);
+  const [tooltipVMs, setTooltipVMs] = useState([]);
   const domRef = React.useRef(null);
 
   const [{ isOver, canDrop }, drop] = useDrop(() => ({
@@ -489,6 +600,12 @@ function DraggableDevice({ device, size, u, onClick, onDrop, allDevices, rackId 
   useEffect(() => {
     if (isDragging) setShowTooltip(false);
   }, [isDragging]);
+
+  useEffect(() => {
+    if (showTooltip && device.device_type === 'VM서버') {
+      getVMs(device.id).then(r => setTooltipVMs(r.data)).catch(() => {});
+    }
+  }, [showTooltip, device.id, device.device_type]);
 
   useEffect(() => {
     preview(getEmptyImage(), { captureDraggingState: true });
@@ -558,6 +675,20 @@ function DraggableDevice({ device, size, u, onClick, onDrop, allDevices, rackId 
               <span className="text-gray-400 flex-shrink-0 w-16">위치</span>
               <span>{device.u_position}U ~ {device.u_position + size - 1}U ({size}U)</span>
             </div>
+            {device.device_type === 'VM서버' && (
+              <div className="mt-1 pt-1 border-t border-gray-100">
+                <div className="text-gray-400 mb-1">VM 목록 ({tooltipVMs.length})</div>
+                {tooltipVMs.length === 0 ? (
+                  <div className="text-gray-300 text-xs">등록된 VM 없음</div>
+                ) : tooltipVMs.map(vm => (
+                  <div key={vm.id} className="flex flex-col mb-1 px-2 py-1 rounded-lg" style={{ backgroundColor: '#F3E5F5' }}>
+                    <span className="font-medium text-xs" style={{ color: '#6A1B9A' }}>{vm.name}</span>
+                    {vm.ip_address && <span className="text-gray-400 text-xs font-mono">{vm.ip_address}</span>}
+                    {vm.host_nm && <span className="text-gray-400 text-xs">{vm.host_nm}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

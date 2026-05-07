@@ -67,3 +67,17 @@ class User(Base):
     password = Column(String, nullable=False)
     role = Column(String, default='viewer')  # 'admin' or 'viewer'
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class VM(Base):
+    __tablename__ = "vms"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(Integer, nullable=False)
+    name = Column(String, nullable=False)
+    ip_address = Column(String)
+    os = Column(String)
+    host_nm = Column(String)
+    cpu = Column(String)
+    core = Column(String)
+    ram_gb = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)

@@ -303,9 +303,10 @@ function DeviceList() {
                   <td className="px-4 py-5 whitespace-nowrap">
                     <span className="px-2 py-0.5 rounded-full text-xs font-medium text-white"
                       style={{ backgroundColor:
-                        device.device_type === '보안' ? '#C62828' :
-                        device.device_type === '네트워크' ? '#1565C0' :
-                        device.device_type === '서버' ? '#2E7D32' : '#6D4C41'
+                              device.device_type === '보안' ? '#C62828' :
+                              device.device_type === '네트워크' ? '#1565C0' :
+                              device.device_type === '서버' ? '#2E7D32' :
+                              device.device_type === 'VM서버' ? '#6A1B9A' : '#6D4C41'
                       }}>
                       {device.device_type || '기타'}
                     </span>
