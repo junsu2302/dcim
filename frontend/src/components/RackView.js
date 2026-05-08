@@ -328,9 +328,9 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
                   <div className="text-xs font-semibold text-blue-700 mb-1">{editingVM ? 'VM 수정' : '새 VM 추가'}</div>
                   {[
                     { label: 'VM 이름', key: 'name', required: true },
-                    { label: 'IP 주소', key: 'ip_address' },
-                    { label: 'OS', key: 'os' },
+                    { label: 'IP', key: 'ip_address' },
                     { label: 'HOST_NM', key: 'host_nm' },
+                    { label: 'OS', key: 'os' },
                     { label: 'CPU', key: 'cpu' },
                     { label: 'CORE', key: 'core' },
                     { label: 'RAM(GB)', key: 'ram_gb' },

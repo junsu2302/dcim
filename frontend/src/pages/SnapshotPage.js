@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getSnapshots, getSnapshot, deleteSnapshot, createSnapshot } from '../api/snapshots';
+import { getVMs } from '../api/vms';
 import { useAuth } from '../context/AuthContext';
 
 const DEVICE_TYPES = {
   '보안': { bg: '#C62828' },
   '네트워크': { bg: '#1565C0' },
   '서버': { bg: '#2E7D32' },
+  'VM서버': { bg: '#6A1B9A' },
   '기타': { bg: '#6D4C41' },
 };
 
@@ -21,6 +23,9 @@ function SnapshotPage() {
   const [selected, setSelected] = useState(null);
   const [viewTab, setViewTab] = useState('rack');
   const [selectedDevice, setSelectedDevice] = useState(null);
+  const [selectedDeviceTab, setSelectedDeviceTab] = useState('info');
+  const [selectedDeviceVMs, setSelectedDeviceVMs] = useState([]);
+  const [tooltip, setTooltip] = useState(null);
   const [snapshotFilterSite, setSnapshotFilterSite] = useState('전체');
   const [showSnapshotModal, setShowSnapshotModal] = useState(false);
   const [snapshotMemo, setSnapshotMemo] = useState('');
@@ -245,37 +250,98 @@ function SnapshotPage() {
 {/* 장비 클릭 모달 */}
               {selectedDevice && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                  <div className="bg-white rounded-2xl shadow-2xl p-6 w-96">
+                  <div className="bg-white rounded-2xl shadow-2xl p-6 w-[480px]">
                     <div className="flex items-center gap-2 mb-1">
                       <div className="w-1 h-5 rounded-full" style={{ backgroundColor: '#003DA5' }}></div>
                       <h3 className="text-lg font-bold" style={{ color: '#003DA5' }}>{selectedDevice.name}</h3>
                     </div>
-                    <p className="text-xs text-gray-400 mb-4 ml-3">{selectedDevice.manufacturer} · {selectedDevice.serial}</p>
+                    <p className="text-xs text-gray-400 mb-3 ml-3">{selectedDevice.manufacturer} · {selectedDevice.serial}</p>
 
-                    <label className="text-sm font-medium text-gray-600 mb-2 block">첨부 문서</label>
-                    {selected.data.documents.filter(d => d.device_id === selectedDevice.id).length === 0 ? (
-                      <div className="text-center py-6 text-gray-400 text-sm">첨부된 문서가 없습니다.</div>
-                    ) : (
-                      <div className="flex flex-col gap-2">
-                        {selected.data.documents.filter(d => d.device_id === selectedDevice.id).map(doc => (
-                          <a
-                            key={doc.id}
-                            href={`${process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/documents/download/${doc.id}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center justify-between p-2 rounded-lg border border-gray-100 hover:bg-blue-50 transition"
-                          >
-                            <span className="text-sm text-gray-700 truncate max-w-[200px]">{doc.original_name}</span>
-                            <span className="text-xs text-blue-500 font-medium flex-shrink-0 ml-2">다운로드</span>
-                          </a>
+                    {/* 탭 */}
+                    <div className="flex gap-1 border-b border-gray-100 mb-4">
+                      {[
+                        { key: 'info', label: '장비 정보' },
+                        ...(selectedDevice.device_type === 'VM서버' ? [{ key: 'vms', label: `VM (${selectedDeviceVMs.length})` }] : []),
+                        { key: 'documents', label: '문서' },
+                      ].map(t => (
+                        <button key={t.key} onClick={() => setSelectedDeviceTab(t.key)}
+                          className="px-4 py-2 text-xs font-medium transition-all"
+                          style={{
+                            color: selectedDeviceTab === t.key ? '#003DA5' : '#888',
+                            borderBottom: selectedDeviceTab === t.key ? '2px solid #003DA5' : '2px solid transparent',
+                          }}>
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* 장비 정보 탭 */}
+                    {selectedDeviceTab === 'info' && (
+                      <div className="flex flex-col gap-2 text-xs">
+                        {[
+                          { label: '장비명', value: selectedDevice.name },
+                          { label: '제조사', value: selectedDevice.manufacturer },
+                          { label: '모델명', value: selectedDevice.product_name },
+                          { label: 'IP', value: selectedDevice.ip_address },
+                          { label: '시리얼', value: selectedDevice.serial },
+                          { label: '도입일', value: selectedDevice.introduced_date },
+                          { label: '유지보수', value: selectedDevice.maintenance_company },
+                          { label: 'U위치', value: selectedDevice.u_position ? `${selectedDevice.u_position}U` : null },
+                          { label: 'U사이즈', value: selectedDevice.u_size ? `${selectedDevice.u_size}U` : null },
+                        ].filter(item => item.value).map(item => (
+                          <div key={item.label} className="flex gap-3">
+                            <span className="text-gray-400 w-16 flex-shrink-0">{item.label}</span>
+                            <span className="text-gray-700">{item.value}</span>
+                          </div>
                         ))}
                       </div>
                     )}
 
-                    <button
-                      onClick={() => setSelectedDevice(null)}
-                      className="w-full mt-5 bg-gray-100 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-200 transition"
-                    >
+                    {/* VM 탭 */}
+                    {selectedDeviceTab === 'vms' && (
+                      <div className="flex flex-col gap-2">
+                        {selectedDeviceVMs.length === 0 ? (
+                          <div className="text-center py-6 text-gray-400 text-sm">등록된 VM이 없습니다.</div>
+                        ) : selectedDeviceVMs.map(vm => (
+                          <div key={vm.id} className="p-3 rounded-xl border border-gray-100 bg-gray-50">
+                            <div className="text-sm font-semibold mb-1.5" style={{ color: '#6A1B9A' }}>{vm.name}</div>
+                            <div className="flex flex-col gap-0.5 text-xs text-gray-500">
+                              {vm.ip_address && <div className="flex gap-2"><span className="text-gray-400 w-16">IP</span><span className="font-mono">{vm.ip_address}</span></div>}
+                              {vm.host_nm && <div className="flex gap-2"><span className="text-gray-400 w-16">HOST</span><span>{vm.host_nm}</span></div>}
+                              {vm.os && <div className="flex gap-2"><span className="text-gray-400 w-16">OS</span><span>{vm.os}</span></div>}
+                              {vm.cpu && <div className="flex gap-2"><span className="text-gray-400 w-16">CPU</span><span>{vm.cpu}</span></div>}
+                              {vm.core && <div className="flex gap-2"><span className="text-gray-400 w-16">CORE</span><span>{vm.core}</span></div>}
+                              {vm.ram_gb && <div className="flex gap-2"><span className="text-gray-400 w-16">RAM(GB)</span><span>{vm.ram_gb}</span></div>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 문서 탭 */}
+                    {selectedDeviceTab === 'documents' && (
+                      <div>
+                        {selected.data.documents.filter(d => d.device_id === selectedDevice.id).length === 0 ? (
+                          <div className="text-center py-6 text-gray-400 text-sm">첨부된 문서가 없습니다.</div>
+                        ) : (
+                          <div className="flex flex-col gap-2">
+                            {selected.data.documents.filter(d => d.device_id === selectedDevice.id).map(doc => (
+                              <a key={doc.id}
+                                href={`${process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/documents/download/${doc.id}`}
+                                target="_blank" rel="noreferrer"
+                                className="flex items-center justify-between p-2 rounded-lg border border-gray-100 hover:bg-blue-50 transition"
+                              >
+                                <span className="text-sm text-gray-700 truncate max-w-[300px]">{doc.original_name}</span>
+                                <span className="text-xs text-blue-500 font-medium flex-shrink-0 ml-2">다운로드</span>
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <button onClick={() => setSelectedDevice(null)}
+                      className="w-full mt-5 bg-gray-100 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-200 transition">
                       닫기
                     </button>
                   </div>
@@ -333,7 +399,18 @@ rackDevices.forEach(d => {
                                             </div>
                                           ))}
                                           <div
-                                            onClick={() => setSelectedDevice(slot)}
+                                            onClick={() => {
+                                              setSelectedDevice(slot);
+                                              setSelectedDeviceTab('info');
+                                              if (slot.device_type === 'VM서버') {
+                                                getVMs(slot.id).then(r => setSelectedDeviceVMs(r.data)).catch(() => {});
+                                              }
+                                            }}
+                                            onMouseEnter={(e) => {
+                                              const rect = e.currentTarget.getBoundingClientRect();
+                                              setTooltip({ slot, x: rect.right + 8, y: rect.top + rect.height / 2 });
+                                            }}
+                                            onMouseLeave={() => setTooltip(null)}
                                             className="absolute text-white rounded px-2 py-1 text-xs font-medium flex justify-between items-center cursor-pointer hover:opacity-80 transition"
                                             style={{
                                               top: '4px', bottom: '4px', left: '48px', right: '8px',
@@ -496,6 +573,40 @@ rackDevices.forEach(d => {
         </div>
       </div>
       </div>
+{/* 툴팁 */}
+      {tooltip && (
+        <div className="fixed bg-white rounded-xl shadow-2xl p-3 text-xs pointer-events-none"
+          style={{ left: tooltip.x, top: tooltip.y, transform: 'translateY(-50%)', minWidth: '200px', maxWidth: '280px', zIndex: 99999, border: '1px solid #f3f4f6' }}>
+          <div className="font-bold mb-2 text-sm" style={{ color: '#003DA5' }}>{tooltip.slot.name}</div>
+          <div className="flex flex-col gap-1 text-gray-600">
+            {tooltip.slot.manufacturer && <div className="flex gap-2"><span className="text-gray-400 w-16">제조사</span><span>{tooltip.slot.manufacturer}</span></div>}
+            {tooltip.slot.ip_address && <div className="flex gap-2"><span className="text-gray-400 w-16">IP</span><span className="font-mono">{tooltip.slot.ip_address}</span></div>}
+            {tooltip.slot.serial && <div className="flex gap-2"><span className="text-gray-400 w-16">시리얼</span><span className="font-mono">{tooltip.slot.serial}</span></div>}
+            {tooltip.slot.introduced_date && <div className="flex gap-2"><span className="text-gray-400 w-16">도입일</span><span>{tooltip.slot.introduced_date}</span></div>}
+            {tooltip.slot.maintenance_company && <div className="flex gap-2"><span className="text-gray-400 w-16">유지보수</span><span>{tooltip.slot.maintenance_company}</span></div>}
+            <div className="flex gap-2 mt-1 pt-1 border-t border-gray-100">
+              <span className="text-gray-400 w-16">위치</span>
+              <span>{tooltip.slot.u_position}U ({tooltip.slot.size}U)</span>
+            </div>
+            {tooltip.slot.device_type === 'VM서버' && (() => {
+              const slotVMs = (selected?.data?.vms || []).filter(v => v.device_id === tooltip.slot.id);
+              if (slotVMs.length === 0) return null;
+              return (
+                <div className="mt-1 pt-1 border-t border-gray-100">
+                  <div className="text-gray-400 mb-1">VM ({slotVMs.length})</div>
+                  {slotVMs.map(vm => (
+                    <div key={vm.id} className="flex flex-col mb-1 px-2 py-1 rounded-lg" style={{ backgroundColor: '#F3E5F5' }}>
+                      <span className="font-medium text-xs" style={{ color: '#6A1B9A' }}>{vm.name}</span>
+                      {vm.ip_address && <div className="flex gap-1 text-xs"><span className="text-gray-400">IP</span><span className="font-mono">{vm.ip_address}</span></div>}
+                      {vm.host_nm && <div className="flex gap-1 text-xs"><span className="text-gray-400">HOST</span><span>{vm.host_nm}</span></div>}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
     </>
   );
 }

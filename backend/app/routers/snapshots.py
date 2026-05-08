@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from ..database import get_db
-from ..models import Snapshot, Device, Rack, Document
+from ..models import Snapshot, Device, Rack, Document, VM
 from datetime import datetime
 import json
 
@@ -16,6 +16,7 @@ def create_snapshot(body: SnapshotCreate, db: Session = Depends(get_db)):
     racks = db.query(Rack).all()
     devices = db.query(Device).all()
     documents = db.query(Document).all()
+    vms = db.query(VM).all()
 
     def to_dict(obj):
         return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
@@ -24,6 +25,7 @@ def create_snapshot(body: SnapshotCreate, db: Session = Depends(get_db)):
         "racks": [to_dict(r) for r in racks],
         "devices": [to_dict(d) for d in devices],
         "documents": [to_dict(doc) for doc in documents],
+        "vms": [to_dict(v) for v in vms],
     }
 
     snapshot = Snapshot(
