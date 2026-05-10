@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { getDevices } from '../api/devices';
 import { getRacks, createRack, updateRack, deleteRack } from '../api/racks';
 import RackView from '../components/RackView';
-import { useNavigate } from 'react-router-dom';
-import { createSnapshot } from '../api/snapshots';
+import AppHeader from '../components/AppHeader';
+import { createSnapshot, getSnapshots } from '../api/snapshots';
 import { useAuth } from '../context/AuthContext';
 
 const SITES = ['본사', '하남IDC'];
@@ -19,11 +19,18 @@ function RackPage() {
   const [showAddRack, setShowAddRack] = useState(false);
   const [addRackTargetSite, setAddRackTargetSite] = useState(null);
   const [showSnapshotModal, setShowSnapshotModal] = useState(false);
-  const [snapshotMemo, setSnapshotMemo] = useState('');
-  const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const [snapshotName, setSnapshotName] = useState('');
+  const [lastSnapshotName, setLastSnapshotName] = useState('');
+  const [confirmStep, setConfirmStep] = useState(false);
+  const [saveToast, setSaveToast] = useState(null);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (!saveToast) return;
+    const t = setTimeout(() => setSaveToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [saveToast]);
   const isAdmin = user?.role === 'admin';
-  const [showUserMenu, setShowUserMenu] = useState(false);
 
   useEffect(() => {
     fetchAll();
@@ -88,127 +95,121 @@ function RackPage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* 상단 네비게이션 */}
-      <div className="text-white px-8 py-3 flex justify-between items-center" style={{ backgroundColor: '#003DA5', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-        {/* 왼쪽: 로고 */}
-        <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition" onClick={() => navigate('/')}>
-          <img src={require('../assets/header_logo.png')} alt="IBK시스템" style={{ height: '30px' }} />
-          <div className="w-px h-5 bg-white opacity-20"></div>
-          <span className="text-sm font-semibold tracking-wide opacity-90">IT 인프라 관리 시스템</span>
-        </div>
-        {/* 오른쪽 */}
-        <div className="flex items-center gap-2">
-          {/* 탭 네비게이션 */}
-          <div className="flex items-center bg-white bg-opacity-10 rounded-lg p-1">
-            {[
-              { label: '랙 실장도', path: '/' },
-              { label: '장비 리스트', path: '/devices' },
-              { label: '이력 관리', path: '/snapshots' },
-            ].map((tab) => (
-              <button
-                key={tab.path}
-                onClick={() => navigate(tab.path)}
-                className="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
-                style={{
-                  backgroundColor: tab.path === '/' ? 'white' : 'transparent',
-                  color: tab.path === '/' ? '#003DA5' : 'rgba(255,255,255,0.75)',
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="w-px h-5 bg-white opacity-20"></div>
-
-          {/* 스냅샷 저장 (관리자만) */}
-          {isAdmin ? (
-            <button
-              onClick={() => setShowSnapshotModal(true)}
-              className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition hover:opacity-90"
-              style={{ backgroundColor: '#FFB81C', color: 'white' }}
-            >
-              📸 스냅샷 저장
-            </button>
-          ) : (
-            <div style={{ width: '100px' }} />
-          )}
-
-          <div className="w-px h-5 bg-white opacity-20"></div>
-
-          {/* 사용자 정보 + 드롭다운 */}
-          <div className="relative">
-            <button
-              onClick={() => setShowUserMenu(prev => !prev)}
-              className="flex items-center gap-1.5 text-xs px-2 py-1.5 rounded-lg transition"
-              style={{ color: 'rgba(255,255,255,0.8)', backgroundColor: showUserMenu ? 'rgba(255,255,255,0.12)' : 'transparent' }}
-            >
-              <span>👤</span>
-              <span>{user?.username}</span>
-              <span className="px-1.5 py-0.5 rounded-full text-xs font-medium"
-                style={{ backgroundColor: user?.role === 'admin' ? '#FFB81C' : 'rgba(255,255,255,0.2)', color: 'white' }}>
-                {user?.role === 'admin' ? '관리자' : '뷰어'}
-              </span>
-              <span style={{ opacity: 0.6 }}>▾</span>
-            </button>
-            {showUserMenu && (
-              <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50" style={{ minWidth: '140px' }}>
-                {isAdmin && (
-                  <button
-                    onClick={() => { setShowUserMenu(false); navigate('/users'); }}
-                    className="w-full px-4 py-2.5 text-left text-xs font-medium text-gray-700 hover:bg-gray-50 transition flex items-center gap-2"
-                  >
-                    👥 사용자 관리
-                  </button>
-                )}
-                <button
-                  onClick={() => { setShowUserMenu(false); logout(); navigate('/login'); }}
-                  className="w-full px-4 py-2.5 text-left text-xs font-medium hover:bg-gray-50 transition flex items-center gap-2"
-                  style={{ color: '#C62828' }}
-                >
-                  🚪 로그아웃
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+      <AppHeader activePath="/" />
+      {/* 페이지 툴바 */}
+      <div className="bg-white border-b border-gray-100 px-8 py-2.5 flex justify-end items-center" style={{ minHeight: '44px' }}>
+        {isAdmin && (
+          <button
+            onClick={async () => {
+              const res = await getSnapshots();
+              setLastSnapshotName(res.data[0]?.memo || '');
+              setShowSnapshotModal(true);
+            }}
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition hover:opacity-90"
+            style={{ backgroundColor: '#003DA5', color: 'white' }}
+          >
+            스냅샷 저장
+          </button>
+        )}
       </div>
 {/* 스냅샷 저장 모달 */}
       {showSnapshotModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-96">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-1 h-5 rounded-full" style={{ backgroundColor: '#FFB81C' }}></div>
-              <h3 className="text-lg font-bold" style={{ color: '#003DA5' }}>스냅샷 저장</h3>
-            </div>
-            <p className="text-xs text-gray-400 mb-4 ml-3">현재 전체 랙/장비 현황을 저장합니다.</p>
-            <label className="text-sm font-medium text-gray-600 mb-1 block">메모 (선택)</label>
-            <input
-              type="text"
-              value={snapshotMemo}
-              onChange={(e) => setSnapshotMemo(e.target.value)}
-              placeholder=""
-              className="w-full border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2"
-            />
-            <div className="flex gap-2 mt-5">
-              <button
-                onClick={async () => {
-                  await createSnapshot(snapshotMemo);
-                  setShowSnapshotModal(false);
-                  setSnapshotMemo('');
-                }}
-                className="flex-1 text-white py-2.5 rounded-xl text-sm font-semibold transition hover:opacity-90"
-                style={{ backgroundColor: '#003DA5' }}
-              >
-                저장
-              </button>
-              <button
-                onClick={() => { setShowSnapshotModal(false); setSnapshotMemo(''); }}
-                className="flex-1 bg-gray-100 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-200 transition"
-              >
-                취소
-              </button>
-            </div>
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-96 border border-gray-100">
+            {!confirmStep ? (
+              <>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-1 h-5 rounded-full" style={{ backgroundColor: '#FFB81C' }}></div>
+                  <h3 className="text-base font-bold" style={{ color: '#003DA5' }}>스냅샷 저장</h3>
+                </div>
+                <p className="text-xs text-gray-400 mb-4 ml-3">현재 전체 랙/장비 현황을 저장합니다.</p>
+                <label className="text-xs font-semibold mb-1 block" style={{ color: '#003DA5' }}>
+                  저장명 <span style={{ color: '#C62828' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={snapshotName}
+                  onChange={(e) => setSnapshotName(e.target.value)}
+                  placeholder="저장명을 입력하세요."
+                  className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  style={{ borderColor: snapshotName.trim() ? '#D1D5DB' : '#FCA5A5' }}
+                />
+                {lastSnapshotName && (
+                  <p className="text-xs text-gray-400 mt-1.5 ml-1">
+                    이전 저장명: <span className="font-medium text-gray-500">{lastSnapshotName}</span>
+                  </p>
+                )}
+                {!snapshotName.trim() && (
+                  <p className="text-xs mt-1 ml-1" style={{ color: '#C62828' }}>저장명은 필수 입력 항목입니다.</p>
+                )}
+                <div className="flex gap-2 mt-4">
+                  <button
+                    disabled={!snapshotName.trim()}
+                    onClick={() => setConfirmStep(true)}
+                    className="flex-1 text-white py-2.5 rounded-xl text-sm font-semibold transition"
+                    style={{ backgroundColor: snapshotName.trim() ? '#003DA5' : '#9CA3AF', cursor: snapshotName.trim() ? 'pointer' : 'not-allowed' }}
+                  >다음</button>
+                  <button
+                    onClick={() => { setShowSnapshotModal(false); setSnapshotName(''); setConfirmStep(false); }}
+                    className="flex-1 bg-gray-100 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-200 transition"
+                  >취소</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-1 h-5 rounded-full" style={{ backgroundColor: '#FFB81C' }}></div>
+                  <h3 className="text-base font-bold" style={{ color: '#003DA5' }}>저장 확인</h3>
+                </div>
+                <p className="text-xs text-gray-400 mb-4 ml-3">아래 내용으로 스냅샷을 저장하시겠습니까?</p>
+                <div className="rounded-xl p-4 mb-1" style={{ backgroundColor: '#F4F6FA', border: '1px solid #E8EEFF' }}>
+                  <div className="flex flex-col gap-2.5 text-xs">
+                    <div className="flex gap-3">
+                      <span className="text-gray-400 w-14 flex-shrink-0">저장명</span>
+                      <span className="font-semibold" style={{ color: '#003DA5' }}>{snapshotName}</span>
+                    </div>
+                    <div className="flex gap-3">
+                      <span className="text-gray-400 w-14 flex-shrink-0">작성자</span>
+                      <span className="font-semibold text-gray-700">{user?.username}</span>
+                    </div>
+                    <div className="flex gap-3">
+                      <span className="text-gray-400 w-14 flex-shrink-0">시각</span>
+                      <span className="text-gray-600">{new Date().toLocaleString('ko-KR')}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <button
+                    onClick={async () => {
+                      const name = snapshotName.trim();
+                      await createSnapshot(name, user?.username || '');
+                      setShowSnapshotModal(false);
+                      setSnapshotName('');
+                      setConfirmStep(false);
+                      setSaveToast(name);
+                    }}
+                    className="flex-1 text-white py-2.5 rounded-xl text-sm font-semibold transition hover:opacity-90"
+                    style={{ backgroundColor: '#003DA5' }}
+                  >저장</button>
+                  <button
+                    onClick={() => setConfirmStep(false)}
+                    className="flex-1 bg-gray-100 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-200 transition"
+                  >돌아가기</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+      {/* 저장 완료 토스트 */}
+      {saveToast && (
+        <div className="fixed z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl text-white text-sm font-medium"
+          style={{ top: '68px', right: '24px', backgroundColor: '#003DA5', minWidth: '280px', maxWidth: '360px' }}>
+          <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+            style={{ backgroundColor: '#4ADE80', color: 'white' }}>✓</div>
+          <div className="flex flex-col min-w-0">
+            <span className="font-semibold">스냅샷이 저장되었습니다.</span>
+            <span className="text-xs font-normal truncate" style={{ opacity: 0.7 }}>{saveToast}</span>
           </div>
         </div>
       )}

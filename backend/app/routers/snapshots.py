@@ -9,7 +9,8 @@ import json
 router = APIRouter(prefix="/snapshots", tags=["snapshots"])
 
 class SnapshotCreate(BaseModel):
-    memo: str = ''
+    memo: str
+    saved_by: str = ''
 
 @router.post("/")
 def create_snapshot(body: SnapshotCreate, db: Session = Depends(get_db)):
@@ -30,19 +31,20 @@ def create_snapshot(body: SnapshotCreate, db: Session = Depends(get_db)):
 
     snapshot = Snapshot(
         memo=body.memo,
+        saved_by=body.saved_by,
         saved_at=datetime.utcnow(),
         data=json.dumps(data, ensure_ascii=False, default=str),
     )
     db.add(snapshot)
     db.commit()
     db.refresh(snapshot)
-    return {"id": snapshot.id, "saved_at": snapshot.saved_at, "memo": snapshot.memo}
+    return {"id": snapshot.id, "saved_at": snapshot.saved_at, "memo": snapshot.memo, "saved_by": snapshot.saved_by}
 
 @router.get("/")
 def get_snapshots(db: Session = Depends(get_db)):
     snapshots = db.query(Snapshot).order_by(Snapshot.saved_at.desc()).all()
     return [
-        {"id": s.id, "saved_at": s.saved_at, "memo": s.memo}
+        {"id": s.id, "saved_at": s.saved_at, "memo": s.memo, "saved_by": s.saved_by or ''}
         for s in snapshots
     ]
 
@@ -55,6 +57,7 @@ def get_snapshot(snapshot_id: int, db: Session = Depends(get_db)):
         "id": s.id,
         "saved_at": s.saved_at,
         "memo": s.memo,
+        "saved_by": s.saved_by or '',
         "data": json.loads(s.data),
     }
 
