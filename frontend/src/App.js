@@ -10,7 +10,15 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-400">로딩 중...</div>;
+  if (loading) return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-3" style={{ backgroundColor: '#F4F6FA' }}>
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" style={{ animation: 'spin 0.8s linear infinite' }}>
+        <circle cx="14" cy="14" r="11" stroke="#E2E8F0" strokeWidth="3" />
+        <path d="M14 3a11 11 0 0 1 11 11" stroke="#003DA5" strokeWidth="3" strokeLinecap="round" />
+      </svg>
+      <span className="text-sm text-gray-400 font-medium">로딩 중...</span>
+    </div>
+  );
   if (!user) return <Navigate to="/login" />;
   return children;
 }

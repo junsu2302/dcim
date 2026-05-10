@@ -85,8 +85,8 @@ function DeviceList() {
       </div>
 {/* 스냅샷 저장 모달 */}
       {showSnapshotModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-96 border border-gray-100">
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 modal-overlay">
+          <div className="bg-white rounded-2xl p-6 w-96 border border-gray-100 modal-card" style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.18)' }}>
             {!confirmStep ? (
               <>
                 <div className="flex items-center gap-2 mb-1">
@@ -174,8 +174,8 @@ function DeviceList() {
       )}
       {/* 저장 완료 토스트 */}
       {saveToast && (
-        <div className="fixed z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl text-white text-sm font-medium"
-          style={{ top: '68px', right: '24px', backgroundColor: '#003DA5', minWidth: '280px', maxWidth: '360px' }}>
+        <div className="fixed z-50 flex items-center gap-3 px-5 py-3 rounded-2xl text-white text-sm font-medium anim-slide-in-right"
+          style={{ top: '68px', right: '24px', backgroundColor: '#003DA5', minWidth: '280px', maxWidth: '360px', boxShadow: '0 8px 32px rgba(0,61,165,0.35)' }}>
           <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
             style={{ backgroundColor: '#4ADE80', color: 'white' }}>✓</div>
           <div className="flex flex-col min-w-0">
@@ -185,7 +185,7 @@ function DeviceList() {
         </div>
       )}
       {/* 통계 카드 */}
-      <div className="px-16 py-6 border-b" style={{ backgroundColor: '#fff' }}>
+      <div className="px-16 py-6 border-b anim-fade-in" style={{ backgroundColor: '#fff' }}>
         {/* 사이트 탭 */}
         <div className="flex gap-3 mb-5">
           {[

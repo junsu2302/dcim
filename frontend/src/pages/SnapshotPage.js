@@ -62,7 +62,7 @@ function SnapshotPage() {
       <AppHeader activePath="/snapshots" />
         <div className="flex h-[calc(100vh-52px)]">
         {/* 좌측 스냅샷 목록 */}
-        <div className="w-72 bg-white border-r border-gray-200 flex flex-col">
+        <div className="w-72 bg-white border-r border-gray-200 flex flex-col anim-fade-in">
           <div className="px-4 py-3 border-b border-gray-100">
             <h2 className="text-sm font-bold text-gray-700">저장된 스냅샷</h2>
             <p className="text-xs text-gray-400 mt-0.5">총 {snapshots.length}개</p>
@@ -148,8 +148,8 @@ function SnapshotPage() {
               </div>
 {/* 장비 클릭 모달 */}
               {selectedDevice && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                  <div className="bg-white rounded-2xl shadow-2xl p-6 w-[480px]">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 modal-overlay">
+                  <div className="bg-white rounded-2xl p-6 w-[480px] modal-card" style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
                     <div className="flex items-center gap-2 mb-1">
                       <div className="w-1 h-5 rounded-full" style={{ backgroundColor: '#003DA5' }}></div>
                       <h3 className="text-lg font-bold" style={{ color: '#003DA5' }}>{selectedDevice.name}</h3>
@@ -474,8 +474,8 @@ rackDevices.forEach(d => {
       </div>
 {/* 삭제 확인 모달 */}
       {deleteTarget && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-88 border border-gray-100" style={{ width: '380px' }}>
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 modal-overlay">
+          <div className="bg-white rounded-2xl p-6 border border-gray-100 modal-card" style={{ width: '380px', boxShadow: '0 24px 64px rgba(0,0,0,0.18)' }}>
             {/* 아이콘 + 제목 */}
             <div className="flex flex-col items-center text-center mb-5">
               <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3"
@@ -546,8 +546,8 @@ rackDevices.forEach(d => {
       )}
 {/* 삭제 완료 토스트 */}
       {deleteToast && (
-        <div className="fixed z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl text-white text-sm font-medium"
-          style={{ top: '68px', right: '24px', backgroundColor: '#7F1D1D', minWidth: '280px', maxWidth: '360px' }}>
+        <div className="fixed z-50 flex items-center gap-3 px-5 py-3 rounded-2xl text-white text-sm font-medium anim-slide-in-right"
+          style={{ top: '68px', right: '24px', backgroundColor: '#7F1D1D', minWidth: '280px', maxWidth: '360px', boxShadow: '0 8px 32px rgba(127,29,29,0.4)' }}>
           <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
             style={{ backgroundColor: '#F87171', color: 'white' }}>✕</div>
           <div className="flex flex-col min-w-0">

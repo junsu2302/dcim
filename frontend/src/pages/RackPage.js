@@ -97,7 +97,7 @@ function RackPage() {
     <div className="min-h-screen bg-gray-100">
       <AppHeader activePath="/" />
       {/* 페이지 툴바 */}
-      <div className="bg-white border-b border-gray-100 px-8 py-2.5 flex justify-end items-center" style={{ minHeight: '44px' }}>
+      <div className="bg-white border-b border-gray-100 px-8 py-2.5 flex justify-end items-center anim-fade-in" style={{ minHeight: '44px' }}>
         {isAdmin && (
           <button
             onClick={async () => {
@@ -114,8 +114,8 @@ function RackPage() {
       </div>
 {/* 스냅샷 저장 모달 */}
       {showSnapshotModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-96 border border-gray-100">
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 modal-overlay">
+          <div className="bg-white rounded-2xl p-6 w-96 border border-gray-100 modal-card" style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.18)' }}>
             {!confirmStep ? (
               <>
                 <div className="flex items-center gap-2 mb-1">
@@ -203,8 +203,8 @@ function RackPage() {
       )}
       {/* 저장 완료 토스트 */}
       {saveToast && (
-        <div className="fixed z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl text-white text-sm font-medium"
-          style={{ top: '68px', right: '24px', backgroundColor: '#003DA5', minWidth: '280px', maxWidth: '360px' }}>
+        <div className="fixed z-50 flex items-center gap-3 px-5 py-3 rounded-2xl text-white text-sm font-medium anim-slide-in-right"
+          style={{ top: '68px', right: '24px', backgroundColor: '#003DA5', minWidth: '280px', maxWidth: '360px', boxShadow: '0 8px 32px rgba(0,61,165,0.35)' }}>
           <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
             style={{ backgroundColor: '#4ADE80', color: 'white' }}>✓</div>
           <div className="flex flex-col min-w-0">
@@ -215,8 +215,8 @@ function RackPage() {
       )}
       {/* 랙 추가 모달 */}
       {showAddRack && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-80">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 modal-overlay">
+          <div className="bg-white rounded-2xl p-6 w-80 modal-card" style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
             <div className="flex items-center gap-2 mb-1">
               <div className="w-1 h-5 rounded-full" style={{ backgroundColor: '#003DA5' }}></div>
               <h3 className="text-lg font-bold" style={{ color: '#003DA5' }}>랙 추가</h3>
@@ -288,7 +288,7 @@ function RackPage() {
       )}
 
       {/* 랙 실장도 본문 */}
-      <div className="p-8">
+      <div className="p-8 anim-fade-in">
         {/* 사이트 필터 */}
         <div className="flex gap-2 mb-6">
           {['전체', ...SITES].map((site) => (
@@ -392,8 +392,8 @@ function RackPage() {
 
       {/* 랙 수정 모달 */}
       {editingRack && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-96">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 modal-overlay">
+          <div className="bg-white rounded-2xl p-6 w-96 modal-card" style={{ boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
             <h3 className="text-lg font-bold mb-1" style={{ color: '#003DA5' }}>🖥️ 랙 수정</h3>
             <p className="text-xs text-gray-400 mb-5">랙 정보를 수정합니다.</p>
 

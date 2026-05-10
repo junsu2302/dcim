@@ -80,10 +80,19 @@ function AppHeader({ activePath }) {
             </svg>
           </button>
           {showUserMenu && (
-            <div
-              className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50"
-              style={{ minWidth: '150px' }}
-            >
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowUserMenu(false)}
+              />
+              <div
+                className="absolute right-0 top-full mt-1 bg-white rounded-xl border border-gray-100 overflow-hidden z-50"
+                style={{
+                  minWidth: '150px',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08)',
+                  animation: 'slideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
+              >
               <div className="px-4 py-3 border-b border-gray-50">
                 <div className="text-xs font-semibold text-gray-700">{user?.username}</div>
                 <div className="text-xs text-gray-400 mt-0.5">{isAdmin ? '관리자' : '뷰어'}</div>
@@ -104,6 +113,7 @@ function AppHeader({ activePath }) {
                 로그아웃
               </button>
             </div>
+            </>
           )}
         </div>
       </div>

@@ -26,7 +26,8 @@ function Toast({ toasts }) {
           style={{
             backgroundColor: t.type === 'error' ? '#D32F2F' : t.type === 'success' ? '#2E7D32' : '#1565C0',
             minWidth: '280px',
-            animation: 'slideIn 0.3s ease',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.22)',
+            animation: 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
           }}
         >
           <span>{t.type === 'error' ? '⚠️' : t.type === 'success' ? '✅' : 'ℹ️'}</span>
@@ -191,8 +192,8 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
 
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col" style={{ maxHeight: '90vh' }}>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 modal-overlay">
+      <div className="bg-white rounded-2xl w-full max-w-md flex flex-col modal-card" style={{ maxHeight: '90vh', boxShadow: '0 24px 64px rgba(0,0,0,0.22)' }}>
 
         {/* 헤더 */}
         <div className="px-6 pt-6 pb-0">
