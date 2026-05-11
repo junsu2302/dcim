@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat c:/dcim/backend/app/main.py)",
+      "Read(//c/dcim/backend/app/**)",
+      "Bash(ipconfig)",
+      "Bash(pip install *)",
+      "Bash(ls -la /c/dcim/backend/)",
+      "Read(//c/dcim/backend//**)"
+    ]
+  }
+}

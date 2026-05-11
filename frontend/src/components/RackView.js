@@ -65,7 +65,7 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
   );
   const [history, setHistory] = useState([]);
   const [documents, setDocuments] = useState([]);
-  const [docType] = useState('품의서');
+  const [docType, setDocType] = useState('품의서');
   const [uploading, setUploading] = useState(false);
   const [pendingFile, setPendingFile] = useState(null);
   const [vms, setVMs] = useState([]);
@@ -117,10 +117,10 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
 
     try {
       if (slot?.device) {
-        await updateDevice(slot.device.id, payload);
+        await updateDevice(slot.device.id, payload, user?.username);
         showToast('장비가 수정되었습니다.', 'success');
       } else {
-        await createDevice(payload);
+        await createDevice(payload, user?.username);
         showToast('장비가 추가되었습니다.', 'success');
       }
       onSave();
@@ -131,13 +131,14 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
     }
   };
 
-  const handleDelete = async () => {
-    if (window.confirm('장비를 삭제하시겠습니까?')) {
-      await deleteDevice(slot.device.id);
-      showToast('장비가 삭제되었습니다.', 'success');
-      onSave();
-      onClose();
-    }
+  const handleDelete = () => setConfirmDelete(true);
+
+  const handleConfirmDelete = async () => {
+    setConfirmDelete(false);
+    await deleteDevice(slot.device.id, user?.username);
+    showToast('장비가 삭제되었습니다.', 'success');
+    onSave();
+    onClose();
   };
 
   const handleUpload = (e) => {
@@ -146,6 +147,7 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
     setPendingFile(file);
   };
 
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmDoc, setConfirmDoc] = useState(false);
 
   const handleSaveDoc = () => {
@@ -406,6 +408,42 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
               ))}
             </div>
           )}
+{/* 장비 삭제 확인 모달 */}
+          {confirmDelete && (
+            <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 rounded-2xl">
+              <div className="bg-white rounded-2xl shadow-2xl p-5 w-72">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#FEE2E2' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-gray-800">장비 삭제</div>
+                    <div className="text-xs text-gray-400">이 작업은 되돌릴 수 없습니다.</div>
+                  </div>
+                </div>
+                <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-100 mb-4">
+                  <span className="text-xs font-semibold text-red-700">{slot?.device?.name}</span>
+                  {slot?.device?.u_position && (
+                    <span className="text-xs text-red-400 ml-2">{slot.device.u_position}U</span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleConfirmDelete}
+                    className="flex-1 text-white py-2 rounded-xl text-sm font-semibold transition hover:opacity-90"
+                    style={{ backgroundColor: '#DC2626' }}
+                  >삭제</button>
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-xl text-sm font-semibold hover:bg-gray-200 transition"
+                  >취소</button>
+                </div>
+              </div>
+            </div>
+          )}
+
 {/* 문서 저장 확인 모달 */}
           {confirmDoc && (
             <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 rounded-2xl">
@@ -443,7 +481,21 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
           {/* 문서 탭 */}
           {tab === 'documents' && (
             <div className="flex flex-col gap-3">
-              {/* 업로드 */}
+              {/* 문서 타입 선택 + 업로드 */}
+              {isAdmin && (
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500 flex-shrink-0">문서 유형</label>
+                  <select
+                    value={docType}
+                    onChange={e => setDocType(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  >
+                    {['품의서', '납품확인서', '유지보수계약서', '구성도', '사용설명서', '기타'].map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {isAdmin && <div
                 className="flex flex-col items-center justify-center gap-2 p-5 rounded-xl border-2 border-dashed cursor-pointer transition-all"
                 style={{
@@ -492,6 +544,12 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
               ) : documents.map((doc) => (
                 <div key={doc.id} className="flex items-center justify-between p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition">
                   <div className="flex items-center gap-2 flex-1 min-w-0">
+                    {doc.doc_type && (
+                      <span className="text-xs font-medium px-1.5 py-0.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: '#E8EEFF', color: '#003DA5' }}>
+                        {doc.doc_type}
+                      </span>
+                    )}
                     <span className="text-sm text-gray-700 truncate">{doc.original_name}</span>
                   </div>
                   <div className="flex gap-2 flex-shrink-0 ml-2">
@@ -746,6 +804,7 @@ function RackView({ rack, devices, allRacks, allDevices, onRefresh }) {
   const [dragEnd, setDragEnd] = useState(null);
   const [isDragSelecting, setIsDragSelecting] = useState(false);
   const { toasts, showToast } = useToast();
+  const { user } = useAuth();
   const totalU = rack.total_u || 42;
 
   const selectedUs = dragStart && dragEnd
@@ -836,7 +895,7 @@ function RackView({ rack, devices, allRacks, allDevices, onRefresh }) {
       rack_id: parseInt(targetRackId),
       site: targetRack?.site || device.site,
       device_type: device.device_type || '기타',
-    });
+    }, user?.username);
     showToast('장비 위치가 변경되었습니다.', 'success');
     onRefresh();
   };

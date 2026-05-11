@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
@@ -15,6 +16,11 @@ class VMCreate(BaseModel):
     cpu: Optional[str] = None
     core: Optional[str] = None
     ram_gb: Optional[str] = None
+
+@router.get("/counts")
+def get_vm_counts(db: Session = Depends(get_db)):
+    results = db.query(VM.device_id, func.count(VM.id).label('count')).group_by(VM.device_id).all()
+    return {r.device_id: r.count for r in results}
 
 @router.get("/device/{device_id}")
 def get_vms(device_id: int, db: Session = Depends(get_db)):

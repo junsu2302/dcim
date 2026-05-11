@@ -23,6 +23,7 @@ class Device(Base):
     u_size = Column(Integer, default=1)
     introduced_date = Column(String)
     maintenance_company = Column(String)
+    maintenance_expiry_date = Column(String, nullable=True)
     rack_id = Column(Integer)
     site = Column(String)
     device_type = Column(String, default='기타')
@@ -81,4 +82,24 @@ class VM(Base):
     cpu = Column(String)
     core = Column(String)
     ram_gb = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class Maintenance(Base):
+    __tablename__ = "maintenance"
+
+    id = Column(Integer, primary_key=True, index=True)
+    site = Column(String, nullable=True)
+    category = Column(String, nullable=True)       # 구분
+    item_name = Column(String, nullable=False)     # 품목
+    system_name = Column(String, nullable=True)    # 시스템명
+    contract_start = Column(String, nullable=True) # 계약 시작일
+    contract_end = Column(String, nullable=True)   # 계약 종료일
+    months = Column(Integer, nullable=True)        # 계약 개월 수
+    quantity = Column(Integer, nullable=True)      # 수량
+    inspection_count = Column(String, nullable=True)   # 점검 주기 (텍스트, 예: 월/분기/반기)
+    company = Column(String, nullable=True)        # 유지보수 업체
+    manager_name = Column(String, nullable=True)   # 담당자명
+    manager_phone = Column(String, nullable=True)  # 담당자 연락처
+    inspection_schedule = Column(Text, nullable=True)  # JSON: {"1":"15","3":"15",...}
+    notes = Column(String, nullable=True)          # 비고
     created_at = Column(DateTime, default=datetime.utcnow)

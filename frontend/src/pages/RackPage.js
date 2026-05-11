@@ -95,7 +95,7 @@ function RackPage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <AppHeader activePath="/" />
+      <AppHeader activePath="/rack" />
       {/* 페이지 툴바 */}
       <div className="bg-white border-b border-gray-100 px-8 py-2.5 flex justify-end items-center anim-fade-in" style={{ minHeight: '44px' }}>
         {isAdmin && (
@@ -204,7 +204,7 @@ function RackPage() {
       {/* 저장 완료 토스트 */}
       {saveToast && (
         <div className="fixed z-50 flex items-center gap-3 px-5 py-3 rounded-2xl text-white text-sm font-medium anim-slide-in-right"
-          style={{ top: '68px', right: '24px', backgroundColor: '#003DA5', minWidth: '280px', maxWidth: '360px', boxShadow: '0 8px 32px rgba(0,61,165,0.35)' }}>
+          style={{ bottom: '24px', right: '24px', backgroundColor: '#003DA5', minWidth: '280px', maxWidth: '360px', boxShadow: '0 8px 32px rgba(0,61,165,0.35)' }}>
           <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
             style={{ backgroundColor: '#4ADE80', color: 'white' }}>✓</div>
           <div className="flex flex-col min-w-0">

@@ -18,11 +18,23 @@ class DeviceCreate(BaseModel):
     u_size: Optional[int] = 1
     introduced_date: Optional[str] = None
     maintenance_company: Optional[str] = None
+    maintenance_expiry_date: Optional[str] = None
     rack_id: Optional[int] = None
     site: Optional[str] = None
     device_type: Optional[str] = '기타'
     product_name: Optional[str] = None
     ip_address: Optional[str] = None
+
+# IP 중복 확인
+@router.get("/check-ip")
+def check_ip(ip: str, exclude_id: Optional[int] = None, db: Session = Depends(get_db)):
+    query = db.query(models.Device).filter(models.Device.ip_address == ip)
+    if exclude_id:
+        query = query.filter(models.Device.id != exclude_id)
+    existing = query.first()
+    if existing:
+        return {"duplicate": True, "device_name": existing.name, "device_id": existing.id}
+    return {"duplicate": False}
 
 # 장비 전체 조회
 @router.get("/")
@@ -39,7 +51,7 @@ def get_device(device_id: int, db: Session = Depends(get_db)):
 
 # 장비 추가
 @router.post("/")
-def create_device(device: DeviceCreate, db: Session = Depends(get_db)):
+def create_device(device: DeviceCreate, changed_by: Optional[str] = None, db: Session = Depends(get_db)):
     if device.serial:
         existing = db.query(models.Device).filter(models.Device.serial == device.serial).first()
         if existing:
@@ -54,32 +66,31 @@ def create_device(device: DeviceCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_device)
 
-    # 이력 저장 (생성)
     history = DeviceHistory(
         device_id=db_device.id,
         change_type='create',
         snapshot=json.dumps(device.dict(), ensure_ascii=False),
         changed_at=datetime.utcnow(),
+        changed_by=changed_by or 'system',
     )
     db.add(history)
     db.commit()
-
     return db_device
 
 # 장비 수정
 @router.put("/{device_id}")
-def update_device(device_id: int, device: DeviceCreate, db: Session = Depends(get_db)):
+def update_device(device_id: int, device: DeviceCreate, changed_by: Optional[str] = None, db: Session = Depends(get_db)):
     db_device = db.query(models.Device).filter(models.Device.id == device_id).first()
     if not db_device:
         raise HTTPException(status_code=404, detail="장비를 찾을 수 없습니다")
 
-    # 변경 전 데이터 이력 저장
     snapshot = {c.name: getattr(db_device, c.name) for c in db_device.__table__.columns}
     history = DeviceHistory(
         device_id=device_id,
         change_type='update',
         snapshot=json.dumps(snapshot, ensure_ascii=False, default=str),
         changed_at=datetime.utcnow(),
+        changed_by=changed_by or 'system',
     )
     db.add(history)
 
@@ -91,18 +102,18 @@ def update_device(device_id: int, device: DeviceCreate, db: Session = Depends(ge
 
 # 장비 삭제
 @router.delete("/{device_id}")
-def delete_device(device_id: int, db: Session = Depends(get_db)):
+def delete_device(device_id: int, changed_by: Optional[str] = None, db: Session = Depends(get_db)):
     db_device = db.query(models.Device).filter(models.Device.id == device_id).first()
     if not db_device:
         raise HTTPException(status_code=404, detail="장비를 찾을 수 없습니다")
 
-    # 삭제 전 데이터 이력 저장
     snapshot = {c.name: getattr(db_device, c.name) for c in db_device.__table__.columns}
     history = DeviceHistory(
         device_id=device_id,
         change_type='delete',
         snapshot=json.dumps(snapshot, ensure_ascii=False, default=str),
         changed_at=datetime.utcnow(),
+        changed_by=changed_by or 'system',
     )
     db.add(history)
     db.commit()

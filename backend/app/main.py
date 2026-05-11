@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, Base
 from . import models
-from .routers import devices, racks, history, documents, snapshots, auth, users, vms
+from .routers import devices, racks, history, documents, snapshots, auth, users, vms, maintenance
 
 Base.metadata.create_all(bind=engine)
 
@@ -24,6 +24,7 @@ app.include_router(snapshots.router)
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(vms.router)
+app.include_router(maintenance.router)
 
 @app.get("/")
 def read_root():

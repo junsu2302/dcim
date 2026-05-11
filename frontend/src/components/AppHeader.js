@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const NAV_TABS = [
-  { label: '랙 실장도', path: '/' },
+  { label: '대시보드', path: '/' },
+  { label: '랙 실장도', path: '/rack' },
   { label: '장비 리스트', path: '/devices' },
+  { label: '유지보수', path: '/maintenance' },
   { label: '이력 관리', path: '/snapshots' },
 ];
 

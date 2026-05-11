@@ -24,6 +24,11 @@ function SnapshotPage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteConfirmed, setDeleteConfirmed] = useState(false);
   const [deleteToast, setDeleteToast] = useState(null);
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareA, setCompareA] = useState(null);
+  const [compareB, setCompareB] = useState(null);
+  const [compareDataA, setCompareDataA] = useState(null);
+  const [compareDataB, setCompareDataB] = useState(null);
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
 
@@ -41,10 +46,47 @@ function SnapshotPage() {
   };
 
   const handleSelect = async (id) => {
+    if (compareMode) {
+      if (!compareA) {
+        setCompareA(snapshots.find(s => s.id === id));
+        const res = await getSnapshot(id);
+        setCompareDataA(res.data);
+      } else if (!compareB && compareA.id !== id) {
+        setCompareB(snapshots.find(s => s.id === id));
+        const res = await getSnapshot(id);
+        setCompareDataB(res.data);
+      }
+      return;
+    }
     const res = await getSnapshot(id);
     setSelected(res.data);
     setViewTab('rack');
   };
+
+  const resetCompare = () => {
+    setCompareA(null); setCompareB(null);
+    setCompareDataA(null); setCompareDataB(null);
+  };
+
+  const diffResult = (() => {
+    if (!compareDataA || !compareDataB) return null;
+    const devA = compareDataA.data?.devices || [];
+    const devB = compareDataB.data?.devices || [];
+    const mapA = Object.fromEntries(devA.map(d => [d.id, d]));
+    const mapB = Object.fromEntries(devB.map(d => [d.id, d]));
+    const FIELDS = ['name', 'site', 'device_type', 'manufacturer', 'product_name', 'ip_address', 'serial', 'u_position', 'u_size', 'rack_id', 'maintenance_company', 'maintenance_expiry_date'];
+    const added = devB.filter(d => !mapA[d.id]);
+    const removed = devA.filter(d => !mapB[d.id]);
+    const modified = devA.filter(d => {
+      if (!mapB[d.id]) return false;
+      return FIELDS.some(f => String(d[f] ?? '') !== String(mapB[d.id][f] ?? ''));
+    }).map(d => ({
+      before: d,
+      after: mapB[d.id],
+      changes: FIELDS.filter(f => String(d[f] ?? '') !== String(mapB[d.id][f] ?? '')),
+    }));
+    return { added, removed, modified };
+  })();
 
   const handleDelete = async () => {
     const name = deleteTarget.memo || '(저장명 없음)';
@@ -64,57 +106,178 @@ function SnapshotPage() {
         {/* 좌측 스냅샷 목록 */}
         <div className="w-72 bg-white border-r border-gray-200 flex flex-col anim-fade-in">
           <div className="px-4 py-3 border-b border-gray-100">
-            <h2 className="text-sm font-bold text-gray-700">저장된 스냅샷</h2>
-            <p className="text-xs text-gray-400 mt-0.5">총 {snapshots.length}개</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-gray-700">저장된 스냅샷</h2>
+                <p className="text-xs text-gray-400 mt-0.5">총 {snapshots.length}개</p>
+              </div>
+              <button onClick={() => { setCompareMode(m => !m); resetCompare(); setSelected(null); }}
+                className="text-xs font-medium px-2.5 py-1.5 rounded-lg transition"
+                style={{ backgroundColor: compareMode ? '#003DA5' : '#F4F6FA', color: compareMode ? 'white' : '#555' }}>
+                {compareMode ? '비교 중' : '비교'}
+              </button>
+            </div>
+            {compareMode && (
+              <div className="mt-2 text-xs rounded-lg p-2.5" style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8' }}>
+                {!compareA ? '① 기준 스냅샷을 선택하세요' :
+                  !compareB ? `① ${compareA.memo || '스냅샷'} ← ② 비교 스냅샷 선택` :
+                  <button onClick={resetCompare} className="text-blue-500 underline">선택 초기화</button>}
+              </div>
+            )}
           </div>
           <div className="overflow-y-auto flex-1">
             {snapshots.length === 0 ? (
               <div className="text-center py-16 text-gray-400 text-sm">저장된 이력이 없습니다.</div>
-            ) : snapshots.map((s) => (
-              <div
-                key={s.id}
-                onClick={() => handleSelect(s.id)}
-                className="px-4 py-3 border-b border-gray-100 cursor-pointer transition hover:bg-blue-50"
-                style={{ backgroundColor: selected?.id === s.id ? '#E8EEFF' : 'white' }}
-              >
-                <div className="flex justify-between items-start">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-semibold truncate" style={{ color: '#003DA5' }}>
-                      {s.memo || '(저장명 없음)'}
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                      {s.saved_by && (
-                        <span className="text-xs font-medium px-1.5 py-0.5 rounded-full" style={{ backgroundColor: '#E8EEFF', color: '#003DA5' }}>
-                          {s.saved_by}
+            ) : snapshots.map((s) => {
+              const isA = compareA?.id === s.id;
+              const isB = compareB?.id === s.id;
+              return (
+                <div
+                  key={s.id}
+                  onClick={() => handleSelect(s.id)}
+                  className="px-4 py-3 border-b border-gray-100 cursor-pointer transition hover:bg-blue-50"
+                  style={{ backgroundColor: isA ? '#DBEAFE' : isB ? '#EDE9FE' : selected?.id === s.id ? '#E8EEFF' : 'white' }}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        {isA && <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-blue-500 text-white">①</span>}
+                        {isB && <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-purple-500 text-white">②</span>}
+                        <div className="text-xs font-semibold truncate" style={{ color: '#003DA5' }}>
+                          {s.memo || '(저장명 없음)'}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {s.saved_by && (
+                          <span className="text-xs font-medium px-1.5 py-0.5 rounded-full" style={{ backgroundColor: '#E8EEFF', color: '#003DA5' }}>
+                            {s.saved_by}
+                          </span>
+                        )}
+                        <span className="text-xs text-gray-400">
+                          {new Date(s.saved_at).toLocaleString('ko-KR')}
                         </span>
-                      )}
-                      <span className="text-xs text-gray-400">
-                        {new Date(s.saved_at).toLocaleString('ko-KR')}
-                      </span>
+                      </div>
                     </div>
+                    {isAdmin && !compareMode && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setDeleteTarget(s); }}
+                        className="text-xs text-red-400 hover:text-red-600 transition ml-2 flex-shrink-0"
+                      >삭제</button>
+                    )}
                   </div>
-                  {isAdmin && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setDeleteTarget(s); }}
-                      className="text-xs text-red-400 hover:text-red-600 transition ml-2 flex-shrink-0"
-                    >삭제</button>
-                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
-        {/* 우측 스냅샷 뷰 */}
+        {/* 우측 뷰 */}
         <div className="flex-1 overflow-auto">
-          {!selected ? (
+
+          {/* 비교 모드 */}
+          {compareMode && (
+            <div className="p-6">
+              {(!compareA || !compareB) && (
+                <div className="flex items-center justify-center text-gray-400 min-h-64">
+                  <div className="text-center">
+                    <div className="text-4xl mb-3">🔍</div>
+                    <div>좌측에서 비교할 스냅샷 두 개를 순서대로 선택하세요.</div>
+                  </div>
+                </div>
+              )}
+              {compareA && compareB && diffResult && (
+                <div>
+                  <div className="bg-white rounded-xl p-4 mb-4 flex items-center gap-4" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+                    <div className="flex items-center gap-2 flex-1">
+                      <span className="text-xs font-bold px-2 py-1 rounded-full bg-blue-500 text-white">①</span>
+                      <div>
+                        <div className="text-xs font-semibold text-gray-700">{compareA.memo || '스냅샷'}</div>
+                        <div className="text-xs text-gray-400">{new Date(compareA.saved_at).toLocaleString('ko-KR')}</div>
+                      </div>
+                    </div>
+                    <div className="text-gray-300 text-xl">→</div>
+                    <div className="flex items-center gap-2 flex-1">
+                      <span className="text-xs font-bold px-2 py-1 rounded-full bg-purple-500 text-white">②</span>
+                      <div>
+                        <div className="text-xs font-semibold text-gray-700">{compareB.memo || '스냅샷'}</div>
+                        <div className="text-xs text-gray-400">{new Date(compareB.saved_at).toLocaleString('ko-KR')}</div>
+                      </div>
+                    </div>
+                    <div className="flex gap-3 text-xs font-medium">
+                      <span className="px-2 py-1 rounded-lg" style={{ backgroundColor: '#DCFCE7', color: '#166534' }}>추가 {diffResult.added.length}</span>
+                      <span className="px-2 py-1 rounded-lg" style={{ backgroundColor: '#FEE2E2', color: '#991B1B' }}>삭제 {diffResult.removed.length}</span>
+                      <span className="px-2 py-1 rounded-lg" style={{ backgroundColor: '#FEF9C3', color: '#713F12' }}>변경 {diffResult.modified.length}</span>
+                    </div>
+                  </div>
+                  {diffResult.added.length === 0 && diffResult.removed.length === 0 && diffResult.modified.length === 0 && (
+                    <div className="text-center py-12 text-gray-400 bg-white rounded-xl" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+                      <div className="text-3xl mb-2">✅</div>
+                      <div className="text-sm">두 스냅샷 간 변경 사항이 없습니다.</div>
+                    </div>
+                  )}
+                  {diffResult.added.length > 0 && (
+                    <div className="bg-white rounded-xl mb-4 overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+                      <div className="px-4 py-3 text-xs font-bold" style={{ backgroundColor: '#DCFCE7', color: '#166534' }}>추가된 장비 ({diffResult.added.length}개)</div>
+                      {diffResult.added.map(d => (
+                        <div key={d.id} className="px-4 py-3 border-b border-gray-50 text-xs flex items-center gap-3">
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: '#22C55E' }} />
+                          <span className="font-semibold text-gray-700">{d.name}</span>
+                          <span className="text-gray-400">{d.site} / {d.device_type}</span>
+                          {d.ip_address && <span className="font-mono text-gray-500">{d.ip_address}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {diffResult.removed.length > 0 && (
+                    <div className="bg-white rounded-xl mb-4 overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+                      <div className="px-4 py-3 text-xs font-bold" style={{ backgroundColor: '#FEE2E2', color: '#991B1B' }}>삭제된 장비 ({diffResult.removed.length}개)</div>
+                      {diffResult.removed.map(d => (
+                        <div key={d.id} className="px-4 py-3 border-b border-gray-50 text-xs flex items-center gap-3">
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: '#EF4444' }} />
+                          <span className="font-semibold text-gray-700 line-through">{d.name}</span>
+                          <span className="text-gray-400">{d.site} / {d.device_type}</span>
+                          {d.ip_address && <span className="font-mono text-gray-500">{d.ip_address}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {diffResult.modified.length > 0 && (
+                    <div className="bg-white rounded-xl overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+                      <div className="px-4 py-3 text-xs font-bold" style={{ backgroundColor: '#FEF9C3', color: '#713F12' }}>변경된 장비 ({diffResult.modified.length}개)</div>
+                      {diffResult.modified.map(({ before, after, changes }) => (
+                        <div key={before.id} className="px-4 py-3 border-b border-gray-50">
+                          <div className="text-xs font-semibold text-gray-700 mb-2">{before.name}</div>
+                          <div className="flex flex-col gap-1.5">
+                            {changes.map(field => (
+                              <div key={field} className="flex items-center gap-2 text-xs">
+                                <span className="text-gray-400 w-28 flex-shrink-0">{field}</span>
+                                <span className="px-2 py-0.5 rounded bg-red-50 text-red-600 line-through">{String(before[field] ?? '-')}</span>
+                                <span className="text-gray-400">→</span>
+                                <span className="px-2 py-0.5 rounded bg-green-50 text-green-600">{String(after[field] ?? '-')}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 일반 뷰: 미선택 */}
+          {!compareMode && !selected && (
             <div className="flex items-center justify-center h-full text-gray-400">
               <div className="text-center">
                 <div className="text-4xl mb-3">📋</div>
                 <div>좌측에서 스냅샷을 선택하세요.</div>
               </div>
             </div>
-          ) : (
+          )}
+
+          {/* 일반 뷰: 선택됨 */}
+          {!compareMode && selected && (
             <div className="p-6">
               {/* 스냅샷 정보 */}
               <div className="bg-white rounded-xl p-4 mb-4 flex items-center justify-between shadow-sm">
@@ -372,23 +535,31 @@ rackDevices.forEach(d => {
                         </button>
                       ))}
                     </div>
-                    <div className="grid grid-cols-5 gap-4">
-                      {[
-                        { label: '전체 장비', value: selected.data.devices.filter(d => snapshotFilterSite === '전체' || d.site === snapshotFilterSite).length, color: '#003DA5', icon: '🖥️' },
-                        { label: '보안', value: selected.data.devices.filter(d => d.device_type === '보안' && (snapshotFilterSite === '전체' || d.site === snapshotFilterSite)).length, color: '#C62828', icon: '🔒' },
-                        { label: '네트워크', value: selected.data.devices.filter(d => d.device_type === '네트워크' && (snapshotFilterSite === '전체' || d.site === snapshotFilterSite)).length, color: '#1565C0', icon: '🌐' },
-                        { label: '서버', value: selected.data.devices.filter(d => d.device_type === '서버' && (snapshotFilterSite === '전체' || d.site === snapshotFilterSite)).length, color: '#2E7D32', icon: '⚙️' },
-                        { label: '기타', value: selected.data.devices.filter(d => (!d.device_type || d.device_type === '기타') && (snapshotFilterSite === '전체' || d.site === snapshotFilterSite)).length, color: '#6D4C41', icon: '📦' },
-                      ].map((stat) => (
-                        <div key={stat.label} className="rounded-xl p-4 flex items-center gap-4"
+                    <div className="grid grid-cols-6 gap-3">
+                      {(() => {
+                        const inSite = d => snapshotFilterSite === '전체' || d.site === snapshotFilterSite;
+                        const vmServerDevices = selected.data.devices.filter(d => d.device_type === 'VM서버' && inSite(d));
+                        const allVms = selected.data.vms || [];
+                        const totalVMs = vmServerDevices.reduce((sum, d) => sum + allVms.filter(v => v.device_id === d.id).length, 0);
+                        return [
+                          { label: '전체 장비', value: selected.data.devices.filter(inSite).length, color: '#003DA5', icon: '🖥️', sub: null },
+                          { label: '보안', value: selected.data.devices.filter(d => d.device_type === '보안' && inSite(d)).length, color: '#C62828', icon: '🔒', sub: null },
+                          { label: '네트워크', value: selected.data.devices.filter(d => d.device_type === '네트워크' && inSite(d)).length, color: '#1565C0', icon: '🌐', sub: null },
+                          { label: '서버', value: selected.data.devices.filter(d => d.device_type === '서버' && inSite(d)).length, color: '#2E7D32', icon: '⚙️', sub: null },
+                          { label: 'VM서버', value: vmServerDevices.length, color: '#6A1B9A', icon: '🔷', sub: totalVMs > 0 ? `VM ${totalVMs}개` : null },
+                          { label: '기타', value: selected.data.devices.filter(d => (!d.device_type || d.device_type === '기타') && inSite(d)).length, color: '#6D4C41', icon: '📦', sub: null },
+                        ];
+                      })().map((stat) => (
+                        <div key={stat.label} className="rounded-xl p-3 flex items-center gap-3"
                           style={{ backgroundColor: stat.color + '10', border: `1.5px solid ${stat.color}22` }}>
-                          <div className="text-3xl w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                          <div className="text-2xl w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                             style={{ backgroundColor: stat.color + '18' }}>
                             {stat.icon}
                           </div>
                           <div>
-                            <div className="text-2xl font-bold" style={{ color: stat.color }}>{stat.value}</div>
+                            <div className="text-xl font-bold" style={{ color: stat.color }}>{stat.value}</div>
                             <div className="text-xs text-gray-500 mt-0.5">{stat.label}</div>
+                            <div className="text-xs font-semibold mt-0.5" style={{ color: stat.color, visibility: stat.sub ? 'visible' : 'hidden' }}>{stat.sub || '-'}</div>
                           </div>
                         </div>
                       ))}
@@ -423,7 +594,26 @@ rackDevices.forEach(d => {
                                 {device.device_type || '기타'}
                               </span>
                             </td>
-                            <td className="px-4 py-3 font-semibold text-xs" style={{ color: '#003DA5' }}>{device.name}</td>
+                            <td className="px-4 py-3 font-semibold text-xs">
+                              {device.device_type === 'VM서버' ? (() => {
+                                const deviceVms = (selected.data.vms || []).filter(v => v.device_id === device.id);
+                                return (
+                                  <button
+                                    onClick={() => {
+                                      setSelectedDevice(device);
+                                      setSelectedDeviceVMs(deviceVms);
+                                      setSelectedDeviceTab('vms');
+                                    }}
+                                    className="flex items-center gap-1 hover:underline"
+                                    style={{ color: '#6A1B9A' }}>
+                                    {device.name}{deviceVms.length > 0 ? ` (${deviceVms.length})` : ''}
+                                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ opacity: 0.6 }}>
+                                      <path d="M9 18l6-6-6-6" />
+                                    </svg>
+                                  </button>
+                                );
+                              })() : <span style={{ color: '#003DA5' }}>{device.name}</span>}
+                            </td>
                             <td className="px-4 py-3 text-gray-600 text-xs">{device.manufacturer}</td>
                             <td className="px-4 py-3 text-gray-500 font-mono text-xs">{device.serial}</td>
                             <td className="px-4 py-3 text-gray-600 text-xs">{device.u_position}U</td>
@@ -547,7 +737,7 @@ rackDevices.forEach(d => {
 {/* 삭제 완료 토스트 */}
       {deleteToast && (
         <div className="fixed z-50 flex items-center gap-3 px-5 py-3 rounded-2xl text-white text-sm font-medium anim-slide-in-right"
-          style={{ top: '68px', right: '24px', backgroundColor: '#7F1D1D', minWidth: '280px', maxWidth: '360px', boxShadow: '0 8px 32px rgba(127,29,29,0.4)' }}>
+          style={{ bottom: '24px', right: '24px', backgroundColor: '#7F1D1D', minWidth: '280px', maxWidth: '360px', boxShadow: '0 8px 32px rgba(127,29,29,0.4)' }}>
           <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
             style={{ backgroundColor: '#F87171', color: 'white' }}>✕</div>
           <div className="flex flex-col min-w-0">
