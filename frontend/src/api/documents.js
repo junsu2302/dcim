@@ -1,12 +1,23 @@
-import axios from 'axios';
-const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
+import client from './client';
 
-export const getDocuments = (deviceId) => axios.get(`${API_URL}/documents/device/${deviceId}`);
-export const uploadDocument = (deviceId, docType, file) => {
+export const getDocuments = (deviceId) => client.get(`/documents/device/${deviceId}`);
+
+export const uploadDocument = (deviceId, file) => {
   const formData = new FormData();
-  formData.append('doc_type', docType);
   formData.append('file', file);
-  return axios.post(`${API_URL}/documents/device/${deviceId}`, formData);
+  return client.post(`/documents/device/${deviceId}`, formData);
 };
-export const deleteDocument = (documentId) => axios.delete(`${API_URL}/documents/${documentId}`);
-export const getDownloadUrl = (documentId) => `${API_URL}/documents/download/${documentId}`;
+
+export const deleteDocument = (documentId) => client.delete(`/documents/${documentId}`);
+
+export const downloadDocument = async (documentId, filename) => {
+  const res = await client.get(`/documents/download/${documentId}`, { responseType: 'blob' });
+  const url = window.URL.createObjectURL(new Blob([res.data]));
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', filename || 'download');
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};

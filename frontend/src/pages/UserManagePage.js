@@ -32,7 +32,7 @@ function UserManagePage() {
   const [deleteConfirmed, setDeleteConfirmed] = useState(false);
   const [form, setForm] = useState({ username: '', password: '', role: 'viewer' });
   const [error, setError] = useState('');
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { toasts, showToast } = useToast();
 
@@ -44,7 +44,7 @@ function UserManagePage() {
 
   const fetchUsers = async () => {
     try {
-      const res = await getUsers(token);
+      const res = await getUsers();
       setUsers(res.data);
     } catch {
       showToast('사용자 목록을 불러오지 못했습니다.', 'error');
@@ -54,7 +54,7 @@ function UserManagePage() {
   const handleCreate = async () => {
     if (!form.username || !form.password) return setError('아이디와 비밀번호를 입력해주세요.');
     try {
-      await createUser(token, form);
+      await createUser(form);
       setShowAddModal(false);
       setForm({ username: '', password: '', role: 'viewer' });
       setError('');
@@ -67,7 +67,7 @@ function UserManagePage() {
 
   const handleUpdate = async () => {
     try {
-      await updateUser(token, editingUser.id, {
+      await updateUser(editingUser.id, {
         password: form.password || undefined,
         role: form.role,
       });
@@ -84,7 +84,7 @@ function UserManagePage() {
   const handleDelete = async () => {
     try {
       const name = deleteTarget.username;
-      await deleteUser(token, deleteTarget.id);
+      await deleteUser(deleteTarget.id);
       setDeleteTarget(null);
       setDeleteConfirmed(false);
       fetchUsers();

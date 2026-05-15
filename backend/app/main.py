@@ -3,14 +3,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, Base
 from . import models
 from .routers import devices, racks, history, documents, snapshots, auth, users, vms, maintenance
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

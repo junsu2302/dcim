@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from ..database import get_db
-from ..models import Snapshot, Device, Rack, Document, VM
+from ..models import Snapshot, Device, Rack, Document, VM, User
+from .dependencies import get_current_user, require_admin
 from datetime import datetime
 import json
 
@@ -13,7 +14,7 @@ class SnapshotCreate(BaseModel):
     saved_by: str = ''
 
 @router.post("/")
-def create_snapshot(body: SnapshotCreate, db: Session = Depends(get_db)):
+def create_snapshot(body: SnapshotCreate, db: Session = Depends(get_db), _: User = Depends(require_admin)):
     racks = db.query(Rack).all()
     devices = db.query(Device).all()
     documents = db.query(Document).all()
@@ -41,7 +42,7 @@ def create_snapshot(body: SnapshotCreate, db: Session = Depends(get_db)):
     return {"id": snapshot.id, "saved_at": snapshot.saved_at, "memo": snapshot.memo, "saved_by": snapshot.saved_by}
 
 @router.get("/")
-def get_snapshots(db: Session = Depends(get_db)):
+def get_snapshots(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     snapshots = db.query(Snapshot).order_by(Snapshot.saved_at.desc()).all()
     return [
         {"id": s.id, "saved_at": s.saved_at, "memo": s.memo, "saved_by": s.saved_by or ''}
@@ -49,7 +50,7 @@ def get_snapshots(db: Session = Depends(get_db)):
     ]
 
 @router.get("/{snapshot_id}")
-def get_snapshot(snapshot_id: int, db: Session = Depends(get_db)):
+def get_snapshot(snapshot_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     s = db.query(Snapshot).filter(Snapshot.id == snapshot_id).first()
     if not s:
         return {"error": "스냅샷을 찾을 수 없습니다."}
@@ -62,7 +63,7 @@ def get_snapshot(snapshot_id: int, db: Session = Depends(get_db)):
     }
 
 @router.delete("/{snapshot_id}")
-def delete_snapshot(snapshot_id: int, db: Session = Depends(get_db)):
+def delete_snapshot(snapshot_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
     s = db.query(Snapshot).filter(Snapshot.id == snapshot_id).first()
     if s:
         db.delete(s)

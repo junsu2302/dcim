@@ -2,18 +2,14 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { createDevice, getDevice, updateDevice } from '../api/devices';
 import { getRacks } from '../api/racks';
-import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
+import client from '../api/client';
 
-const API = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
 const SITES = ['본사', '하남IDC'];
 
 function DeviceForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const isEdit = !!id;
-  const { user } = useAuth();
-
   const [form, setForm] = useState({
     name: '',
     manufacturer: '',
@@ -56,7 +52,7 @@ function DeviceForm() {
     try {
       const params = { ip };
       if (isEdit) params.exclude_id = id;
-      const res = await axios.get(`${API}/devices/check-ip`, { params });
+      const res = await client.get('/devices/check-ip', { params });
       if (res.data.duplicate) {
         setIpWarning(`⚠ 이미 사용 중인 IP입니다 (${res.data.device_name})`);
       } else {
@@ -99,9 +95,9 @@ function DeviceForm() {
 
     try {
       if (isEdit) {
-        await updateDevice(id, form, user?.username);
+        await updateDevice(id, form);
       } else {
-        await createDevice(form, user?.username);
+        await createDevice(form);
       }
       navigate('/rack');
     } catch (err) {

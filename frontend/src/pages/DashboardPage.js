@@ -1,13 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import client from '../api/client';
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
 import AppHeader from '../components/AppHeader';
-
-const API = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
 
 const TYPE_COLORS = {
   '보안': '#3B82F6',
@@ -65,9 +63,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     Promise.all([
-      axios.get(`${API}/devices/`),
-      axios.get(`${API}/racks/`),
-      axios.get(`${API}/history/recent?limit=8`),
+      client.get('/devices/'),
+      client.get('/racks/'),
+      client.get('/history/recent?limit=8'),
     ]).then(([devRes, rackRes, histRes]) => {
       setDevices(devRes.data);
       setRacks(rackRes.data);

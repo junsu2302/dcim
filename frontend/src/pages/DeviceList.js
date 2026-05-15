@@ -3,7 +3,7 @@ import { getRacks } from '../api/racks';
 import { getDevices } from '../api/devices';
 import { createSnapshot, getSnapshots } from '../api/snapshots';
 import { useAuth } from '../context/AuthContext';
-import { getDocuments, getDownloadUrl } from '../api/documents';
+import { getDocuments, downloadDocument } from '../api/documents';
 import { getVmCounts, getVMs } from '../api/vms';
 import AppHeader from '../components/AppHeader';
 import * as XLSX from 'xlsx';
@@ -19,12 +19,12 @@ const HEADERS = [
   { label: '모델명', key: 'product_name', width: '9%' },
   { label: 'IP', key: 'ip_address', width: '9%' },
   { label: '시리얼', key: 'serial', width: '8%' },
+  { label: '랙번호', key: 'rack_id', width: '6%' },
   { label: 'U위치', key: 'u_position', width: '5%' },
   { label: 'U사이즈', key: 'u_size', width: '5%' },
   { label: '도입일', key: 'introduced_date', width: '8%' },
   { label: '만료일', key: 'maintenance_expiry_date', width: '8%' },
   { label: '유지보수 업체', key: 'maintenance_company', width: '8%' },
-  { label: '랙번호', key: 'rack_id', width: '6%' },
   { label: '첨부문서', key: '_docs', width: '7%' },
 ];
 
@@ -137,12 +137,12 @@ function DeviceList() {
         '모델명': d.product_name || '',
         'IP 주소': d.ip_address || '',
         '시리얼': d.serial || '',
+        '랙 번호': rack ? `RACK #${rack.rack_number}` : '',
         'U 위치': d.u_position ?? '',
         'U 사이즈': d.u_size ?? '',
         '도입일': d.introduced_date || '',
         '유지보수 만료일': d.maintenance_expiry_date || '',
         '유지보수 업체': d.maintenance_company || '',
-        '랙 번호': rack ? `RACK #${rack.rack_number}` : '',
       };
     });
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -405,6 +405,7 @@ function DeviceList() {
                     <td title={device.product_name} className="px-3 py-4 text-gray-600 text-xs" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{device.product_name}</td>
                     <td title={device.ip_address} className="px-3 py-4 text-gray-500 font-mono text-xs" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{device.ip_address}</td>
                     <td title={device.serial} className="px-3 py-4 text-gray-500 font-mono text-xs" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{device.serial}</td>
+                    <td className="px-3 py-4 text-gray-600 text-xs whitespace-nowrap">{rack ? `RACK #${rack.rack_number}` : '-'}</td>
                     <td className="px-3 py-4 text-gray-600 text-xs whitespace-nowrap">{device.u_position}U</td>
                     <td className="px-3 py-4 text-gray-600 text-xs whitespace-nowrap">{device.u_size}U</td>
                     <td className="px-3 py-4 text-gray-600 text-xs whitespace-nowrap">{device.introduced_date || '-'}</td>
@@ -420,18 +421,17 @@ function DeviceList() {
                       </div>
                     </td>
                     <td title={device.maintenance_company} className="px-3 py-4 text-gray-600 text-xs" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{device.maintenance_company}</td>
-                    <td className="px-3 py-4 text-gray-600 text-xs whitespace-nowrap">{rack ? `RACK #${rack.rack_number}` : '-'}</td>
                     <td className="px-3 py-4">
                       {(deviceDocs[device.id] || []).length === 0 ? (
                         <span className="text-gray-300 text-xs">-</span>
                       ) : (
                         <div className="flex flex-col gap-1">
                           {(deviceDocs[device.id] || []).map(doc => (
-                            <a key={doc.id} href={getDownloadUrl(doc.id)} target="_blank" rel="noreferrer"
+                            <button key={doc.id} onClick={() => downloadDocument(doc.id, doc.original_name)}
                               className="flex items-center gap-1 hover:opacity-70 transition">
                               <span className="text-xs" style={{ color: '#003DA5' }}>💾</span>
                               <span className="text-xs text-blue-400 truncate max-w-[80px]">{doc.original_name}</span>
-                            </a>
+                            </button>
                           ))}
                         </div>
                       )}

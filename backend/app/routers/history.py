@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from ..database import get_db
-from ..models import DeviceHistory, Device
+from ..models import DeviceHistory, Device, User
+from .dependencies import get_current_user, require_admin
 import json
 
 router = APIRouter(prefix="/history", tags=["history"])
@@ -14,7 +15,7 @@ FIELD_LABELS = {
 }
 
 @router.get("/recent")
-def get_recent_history(limit: int = 10, db: Session = Depends(get_db)):
+def get_recent_history(limit: int = 10, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     history = db.query(DeviceHistory)\
         .order_by(DeviceHistory.changed_at.desc())\
         .limit(limit)\
@@ -57,7 +58,7 @@ def get_recent_history(limit: int = 10, db: Session = Depends(get_db)):
     return result
 
 @router.get("/device/{device_id}")
-def get_device_history(device_id: int, db: Session = Depends(get_db)):
+def get_device_history(device_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     history = db.query(DeviceHistory)\
         .filter(DeviceHistory.device_id == device_id)\
         .order_by(DeviceHistory.changed_at.desc())\
@@ -75,7 +76,7 @@ def get_device_history(device_id: int, db: Session = Depends(get_db)):
     ]
 
 @router.delete("/{history_id}")
-def delete_history(history_id: int, db: Session = Depends(get_db)):
+def delete_history(history_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
     h = db.query(DeviceHistory).filter(DeviceHistory.id == history_id).first()
     if h:
         db.delete(h)

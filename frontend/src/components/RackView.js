@@ -3,7 +3,7 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend, getEmptyImage } from 'react-dnd-html5-backend';
 import { createDevice, updateDevice, deleteDevice } from '../api/devices';
 import { getDeviceHistory } from '../api/history';
-import { getDocuments, uploadDocument, deleteDocument, getDownloadUrl } from '../api/documents';
+import { getDocuments, uploadDocument, deleteDocument, downloadDocument } from '../api/documents';
 import { getVMs, createVM, updateVM, deleteVM } from '../api/vms';
 import { useAuth } from '../context/AuthContext';
 
@@ -53,7 +53,7 @@ function useToast() {
   return { toasts, showToast };
 }
 
-function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToast }) {
+function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToast, onDeviceSaved, onDocumentsChanged }) {
   const [tab, setTab] = useState('info');
   const [form, setForm] = useState(
     slot?.device ? { ...slot.device } : {
@@ -117,11 +117,11 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
 
     try {
       if (slot?.device) {
-        await updateDevice(slot.device.id, payload, user?.username);
-        showToast('장비가 수정되었습니다.', 'success');
+        await updateDevice(slot.device.id, payload);
+        onDeviceSaved?.('장비 정보가 수정되었습니다.');
       } else {
-        await createDevice(payload, user?.username);
-        showToast('장비가 추가되었습니다.', 'success');
+        await createDevice(payload);
+        onDeviceSaved?.('장비가 추가되었습니다.');
       }
       onSave();
       onClose();
@@ -135,8 +135,8 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
 
   const handleConfirmDelete = async () => {
     setConfirmDelete(false);
-    await deleteDevice(slot.device.id, user?.username);
-    showToast('장비가 삭제되었습니다.', 'success');
+    await deleteDevice(slot.device.id);
+    onDeviceSaved?.('장비가 삭제되었습니다.');
     onSave();
     onClose();
   };
@@ -159,11 +159,12 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
     setConfirmDoc(false);
     setUploading(true);
     try {
-      await uploadDocument(slot.device.id, docType, pendingFile);
+      await uploadDocument(slot.device.id, pendingFile);
       const res = await getDocuments(slot.device.id);
       setDocuments(res.data);
       setPendingFile(null);
-      showToast('문서가 업로드되었습니다.', 'success');
+      onDocumentsChanged?.();
+      onDeviceSaved?.('문서가 업로드되었습니다.');
     } catch {
       showToast('업로드 중 오류가 발생했습니다.', 'error');
     }
@@ -174,7 +175,8 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
     if (!window.confirm('문서를 삭제하시겠습니까?')) return;
     await deleteDocument(docId);
     setDocuments(documents.filter(d => d.id !== docId));
-    showToast('문서가 삭제되었습니다.', 'success');
+    onDocumentsChanged?.();
+    onDeviceSaved?.('문서가 삭제되었습니다.');
   };
 
   const selectedRack = allRacks.find((r) => r.id === parseInt(form.rack_id));
@@ -481,21 +483,6 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
           {/* 문서 탭 */}
           {tab === 'documents' && (
             <div className="flex flex-col gap-3">
-              {/* 문서 타입 선택 + 업로드 */}
-              {isAdmin && (
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-gray-500 flex-shrink-0">문서 유형</label>
-                  <select
-                    value={docType}
-                    onChange={e => setDocType(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-100"
-                  >
-                    {['품의서', '납품확인서', '유지보수계약서', '구성도', '사용설명서', '기타'].map(t => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
               {isAdmin && <div
                 className="flex flex-col items-center justify-center gap-2 p-5 rounded-xl border-2 border-dashed cursor-pointer transition-all"
                 style={{
@@ -544,17 +531,11 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
               ) : documents.map((doc) => (
                 <div key={doc.id} className="flex items-center justify-between p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition">
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    {doc.doc_type && (
-                      <span className="text-xs font-medium px-1.5 py-0.5 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: '#E8EEFF', color: '#003DA5' }}>
-                        {doc.doc_type}
-                      </span>
-                    )}
                     <span className="text-sm text-gray-700 truncate">{doc.original_name}</span>
                   </div>
                   <div className="flex gap-2 flex-shrink-0 ml-2">
-                    <a href={getDownloadUrl(doc.id)} target="_blank" rel="noreferrer"
-                      className="text-xs text-blue-500 hover:text-blue-700 font-medium transition">다운로드</a>
+                    <button onClick={() => downloadDocument(doc.id, doc.original_name)}
+                      className="text-xs text-blue-500 hover:text-blue-700 font-medium transition">다운로드</button>
                     {isAdmin && (
                       <button onClick={() => handleDeleteDoc(doc.id)}
                         className="text-xs text-red-400 hover:text-red-600 transition">삭제</button>
@@ -596,7 +577,7 @@ function SlotModal({ slot, rack, allRacks, allDevices, onClose, onSave, showToas
     </div>
   );
 }
-function DraggableDevice({ device, size, u, onClick, onDrop, allDevices, rackId }) {
+function DraggableDevice({ device, size, u, onClick, onDrop, allDevices, rackId, hasDoc }) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [tooltipVMs, setTooltipVMs] = useState([]);
   const domRef = React.useRef(null);
@@ -707,7 +688,14 @@ function DraggableDevice({ device, size, u, onClick, onDrop, allDevices, rackId 
         }}
       >
         <span className="truncate">{device.name}</span>
-        <span className="ml-1 flex-shrink-0 opacity-70">{size}U</span>
+        <div className="flex items-center gap-1 ml-1 flex-shrink-0">
+          {hasDoc && (
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.85 }} title="첨부파일 있음">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+            </svg>
+          )}
+          <span className="opacity-70">{size}U</span>
+        </div>
       </div>
 
       {/* 툴팁 */}
@@ -798,7 +786,7 @@ function DragSelectSlot({ u, isSelected, isSelecting, onMouseDown, onMouseEnter,
   );
 }
 
-function RackView({ rack, devices, allRacks, allDevices, onRefresh }) {
+function RackView({ rack, devices, allRacks, allDevices, onRefresh, onDeviceSaved }) {
   const [modal, setModal] = useState(null);
   const [dragStart, setDragStart] = useState(null);
   const [dragEnd, setDragEnd] = useState(null);
@@ -806,6 +794,25 @@ function RackView({ rack, devices, allRacks, allDevices, onRefresh }) {
   const { toasts, showToast } = useToast();
   const { user } = useAuth();
   const totalU = rack.total_u || 42;
+  const [hasDocSet, setHasDocSet] = useState(new Set());
+  const [docRefreshKey, setDocRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const rackDevices = devices.filter(d => d.rack_id === rack.id);
+    if (rackDevices.length === 0) { setHasDocSet(new Set()); return; }
+    let cancelled = false;
+    Promise.allSettled(rackDevices.map(d => getDocuments(d.id))).then(results => {
+      if (cancelled) return;
+      const withDocs = new Set();
+      results.forEach((result, i) => {
+        if (result.status === 'fulfilled' && result.value.data?.length > 0) {
+          withDocs.add(rackDevices[i].id);
+        }
+      });
+      setHasDocSet(withDocs);
+    });
+    return () => { cancelled = true; };
+  }, [devices, rack.id, docRefreshKey]);
 
   const selectedUs = dragStart && dragEnd
     ? Array.from({ length: Math.abs(dragEnd - dragStart) + 1 }, (_, i) => Math.min(dragStart, dragEnd) + i)
@@ -896,7 +903,7 @@ function RackView({ rack, devices, allRacks, allDevices, onRefresh }) {
       site: targetRack?.site || device.site,
       device_type: device.device_type || '기타',
     }, user?.username);
-    showToast('장비 위치가 변경되었습니다.', 'success');
+    onDeviceSaved?.('장비 위치가 변경되었습니다.');
     onRefresh();
   };
 
@@ -946,16 +953,18 @@ function RackView({ rack, devices, allRacks, allDevices, onRefresh }) {
                 const actualStart = u - size + 1;
                 for (let i = 0; i < size; i++) rendered.add(actualStart + i);
                 const deviceData = devices.filter(d => d.rack_id === rack.id).find(d => d.u_position === actualStart);
+                const dev = deviceData || slot;
                 return (
                   <DraggableDevice
                     key={u}
-                    device={deviceData || slot}
+                    device={dev}
                     size={parseInt(deviceData?.u_size) || size}
                     u={actualStart}
                     onClick={() => setModal({ u: actualStart, device: slot })}
                     onDrop={handleDrop}
                     allDevices={allDevices}
                     rackId={rack.id}
+                    hasDoc={hasDocSet.has(dev.id)}
                   />
                 );
               }
@@ -988,6 +997,8 @@ function RackView({ rack, devices, allRacks, allDevices, onRefresh }) {
             onClose={() => setModal(null)}
             onSave={onRefresh}
             showToast={showToast}
+            onDeviceSaved={onDeviceSaved}
+            onDocumentsChanged={() => setDocRefreshKey(k => k + 1)}
           />
         )}
       </div>

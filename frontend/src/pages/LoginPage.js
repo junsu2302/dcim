@@ -19,6 +19,7 @@ function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [errorType, setErrorType] = useState('error');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -36,7 +37,14 @@ function LoginPage() {
       });
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.detail || '로그인에 실패했습니다.');
+      const status = err.response?.status;
+      const detail = err.response?.data?.detail || '로그인에 실패했습니다.';
+      if (status === 429) {
+        setErrorType('lockout');
+      } else {
+        setErrorType('error');
+      }
+      setError(detail);
     }
     setLoading(false);
   };
@@ -83,7 +91,7 @@ function LoginPage() {
             alt="IBK시스템"
             className="h-10 mx-auto mb-4"
           />
-          <h1 className="text-xl font-bold text-white">IT 인프라 관리 시스템</h1>
+          <h1 className="text-xl font-bold text-white">IT 자산관리시스템</h1>
           <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.55)' }}>
             IBK시스템 내부 관리자 전용
           </p>
@@ -143,13 +151,14 @@ function LoginPage() {
 
             {error && (
               <div
-                className="px-4 py-3 rounded-xl text-xs font-medium text-white flex items-center gap-2"
+                className="px-4 py-3 rounded-xl text-xs font-medium text-white flex items-start gap-2"
                 style={{
-                  backgroundColor: '#C62828',
+                  backgroundColor: errorType === 'lockout' ? '#7F1D1D' : '#C62828',
                   animation: 'slideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
                 }}
               >
-                <span>⚠️</span><span>{error}</span>
+                <span className="mt-0.5 flex-shrink-0">{errorType === 'lockout' ? '🔒' : '⚠️'}</span>
+                <span style={{ whiteSpace: 'pre-line' }}>{error}</span>
               </div>
             )}
 

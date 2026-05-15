@@ -1,5 +1,5 @@
-import axios from 'axios';
-const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
+import client from './client';
 
-export const getDeviceHistory = (deviceId) => axios.get(`${API_URL}/history/device/${deviceId}`);
-export const deleteHistory = (historyId) => axios.delete(`${API_URL}/history/${historyId}`);
+export const getRecentHistory = (limit = 10) => client.get('/history/recent', { params: { limit } });
+export const getDeviceHistory = (deviceId) => client.get(`/history/device/${deviceId}`);
+export const deleteHistory = (historyId) => client.delete(`/history/${historyId}`);

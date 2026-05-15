@@ -1,9 +1,9 @@
-import axios from 'axios';
+import client from './client';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
-
-export const getDevices = () => axios.get(`${API_URL}/devices/`);
-export const getDevice = (id) => axios.get(`${API_URL}/devices/${id}`);
-export const createDevice = (data, changedBy) => axios.post(`${API_URL}/devices/`, data, { params: { changed_by: changedBy } });
-export const updateDevice = (id, data, changedBy) => axios.put(`${API_URL}/devices/${id}`, data, { params: { changed_by: changedBy } });
-export const deleteDevice = (id, changedBy) => axios.delete(`${API_URL}/devices/${id}`, { params: { changed_by: changedBy } });
+export const getDevices = () => client.get('/devices/');
+export const getDevice = (id) => client.get(`/devices/${id}`);
+export const checkIp = (ip, excludeId) =>
+  client.get('/devices/check-ip', { params: excludeId ? { ip, exclude_id: excludeId } : { ip } });
+export const createDevice = (data) => client.post('/devices/', data);
+export const updateDevice = (id, data) => client.put(`/devices/${id}`, data);
+export const deleteDevice = (id) => client.delete(`/devices/${id}`);

@@ -4,6 +4,8 @@ from pydantic import BaseModel
 from typing import Optional
 from .. import models
 from ..database import get_db
+from ..models import User
+from .dependencies import get_current_user, require_admin
 
 router = APIRouter(prefix="/maintenance", tags=["maintenance"])
 
@@ -24,18 +26,18 @@ class MaintenanceCreate(BaseModel):
     notes: Optional[str] = None
 
 @router.get("/")
-def get_maintenance(db: Session = Depends(get_db)):
+def get_maintenance(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     return db.query(models.Maintenance).order_by(models.Maintenance.site, models.Maintenance.category, models.Maintenance.item_name).all()
 
 @router.get("/{item_id}")
-def get_maintenance_item(item_id: int, db: Session = Depends(get_db)):
+def get_maintenance_item(item_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     item = db.query(models.Maintenance).filter(models.Maintenance.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="항목을 찾을 수 없습니다")
     return item
 
 @router.post("/")
-def create_maintenance(item: MaintenanceCreate, db: Session = Depends(get_db)):
+def create_maintenance(item: MaintenanceCreate, db: Session = Depends(get_db), _: User = Depends(require_admin)):
     db_item = models.Maintenance(**item.dict())
     db.add(db_item)
     db.commit()
@@ -43,7 +45,7 @@ def create_maintenance(item: MaintenanceCreate, db: Session = Depends(get_db)):
     return db_item
 
 @router.put("/{item_id}")
-def update_maintenance(item_id: int, item: MaintenanceCreate, db: Session = Depends(get_db)):
+def update_maintenance(item_id: int, item: MaintenanceCreate, db: Session = Depends(get_db), _: User = Depends(require_admin)):
     db_item = db.query(models.Maintenance).filter(models.Maintenance.id == item_id).first()
     if not db_item:
         raise HTTPException(status_code=404, detail="항목을 찾을 수 없습니다")
@@ -54,7 +56,7 @@ def update_maintenance(item_id: int, item: MaintenanceCreate, db: Session = Depe
     return db_item
 
 @router.delete("/{item_id}")
-def delete_maintenance(item_id: int, db: Session = Depends(get_db)):
+def delete_maintenance(item_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
     db_item = db.query(models.Maintenance).filter(models.Maintenance.id == item_id).first()
     if not db_item:
         raise HTTPException(status_code=404, detail="항목을 찾을 수 없습니다")

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { logout as logoutApi } from '../api/auth';
 
 const AuthContext = createContext(null);
 
@@ -24,7 +25,8 @@ export function AuthProvider({ children }) {
     sessionStorage.setItem('user', JSON.stringify(userData));
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try { await logoutApi(); } catch {}
     setToken(null);
     setUser(null);
     sessionStorage.removeItem('token');

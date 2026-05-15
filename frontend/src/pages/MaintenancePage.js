@@ -29,19 +29,24 @@ function parseSchedule(raw) {
 
 function ScheduleDots({ schedule }) {
   const parsed = parseSchedule(schedule);
+  const activeMonths = MONTH_ORDER.filter(m => String(m) in parsed);
+  if (activeMonths.length === 0) {
+    return <span className="text-xs text-gray-300">미설정</span>;
+  }
   return (
     <div className="flex gap-0.5 flex-wrap">
       {MONTH_ORDER.map(month => {
         const key = String(month);
         const date = parsed[key];
+        const active = key in parsed;
         return (
           <div
             key={month}
-            title={date ? `${month}월 ${date}일` : `${month}월 미정`}
-            className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold"
+            title={active ? (date ? `${month}월 ${date}일` : `${month}월`) : undefined}
+            className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold transition"
             style={{
-              backgroundColor: date ? '#DBEAFE' : '#F1F5F9',
-              color: date ? '#1D4ED8' : '#CBD5E1',
+              backgroundColor: active ? '#DBEAFE' : '#F1F5F9',
+              color: active ? '#1D4ED8' : '#CBD5E1',
             }}
           >
             {month}
@@ -52,69 +57,143 @@ function ScheduleDots({ schedule }) {
   );
 }
 
-function InlineSchedule({ schedule, onSave }) {
-  const [local, setLocal] = useState(() => parseSchedule(schedule));
+function SchedulePopup({ item, anchorRect, onSave, onClose }) {
+  const original = parseSchedule(item.inspection_schedule);
+  const [local, setLocal] = useState(() => parseSchedule(item.inspection_schedule));
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    setLocal(parseSchedule(schedule));
-  }, [schedule]);
+  const isDirty = JSON.stringify(local) !== JSON.stringify(original);
 
   const toggle = (month) => {
     const key = String(month);
-    const next = { ...local };
-    if (key in next) {
-      delete next[key];
-    } else {
-      next[key] = '';
-    }
-    setLocal(next);
-    onSave(JSON.stringify(next));
+    setLocal(prev => {
+      const next = { ...prev };
+      if (key in next) { delete next[key]; } else { next[key] = ''; }
+      return next;
+    });
   };
 
-  const saveDay = (month, value) => {
-    const key = String(month);
-    const next = { ...local, [key]: value };
-    setLocal(next);
-    onSave(JSON.stringify(next));
+  const handleSave = async () => {
+    setSaving(true);
+    await onSave(item.id, JSON.stringify(local));
+    setSaving(false);
+    onClose();
   };
+
+  const handleCancel = () => {
+    if (isDirty && !window.confirm('변경사항을 저장하지 않고 닫겠습니까?')) return;
+    onClose();
+  };
+
+  const popupWidth = 336;
+  const popupHeight = 340;
+  const margin = 10;
+  let top = anchorRect.bottom + 6;
+  let left = anchorRect.left;
+  if (left + popupWidth > window.innerWidth - margin) left = window.innerWidth - popupWidth - margin;
+  if (top + popupHeight > window.innerHeight - margin) top = anchorRect.top - popupHeight - 6;
+
+  const activeCount = Object.keys(local).length;
 
   return (
-    <div className="flex gap-0.5 flex-wrap">
-      {MONTH_ORDER.map(month => {
-        const key = String(month);
-        const active = key in local;
-        const date = local[key];
-        return (
-          <div key={month} className="flex flex-col items-center gap-0.5">
-            <button
-              type="button"
-              onClick={() => toggle(month)}
-              title={active ? `${month}월 제거` : `${month}월 추가`}
-              className="w-6 h-6 rounded flex items-center justify-center text-[9px] font-bold transition hover:opacity-80"
-              style={{
-                backgroundColor: active ? '#DBEAFE' : '#F1F5F9',
-                color: active ? '#1D4ED8' : '#CBD5E1',
-                border: active ? '1.5px solid #93C5FD' : '1.5px solid transparent',
-              }}
-            >
-              {month}
-            </button>
-            {active && (
-              <input
-                type="number"
-                min="1"
-                max="31"
-                value={date || ''}
-                onChange={e => setLocal(prev => ({ ...prev, [key]: e.target.value }))}
-                onBlur={e => saveDay(month, e.target.value)}
-                placeholder="일"
-                className="w-7 border border-gray-200 rounded text-center text-[9px] py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-300"
-              />
-            )}
+    <>
+      <div className="fixed inset-0 z-40" onClick={handleCancel} />
+      <div
+        className="fixed z-50 bg-white rounded-2xl border border-gray-100"
+        style={{ top, left, width: popupWidth, boxShadow: '0 12px 40px rgba(0,0,0,0.16), 0 2px 8px rgba(0,0,0,0.08)' }}
+      >
+        {/* 헤더 */}
+        <div className="px-4 pt-4 pb-3 border-b border-gray-50 flex items-start justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#003DA5" strokeWidth="2" strokeLinecap="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
+              </svg>
+              <span className="text-sm font-bold" style={{ color: '#003DA5' }}>점검 일정</span>
+              {activeCount > 0 && (
+                <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold" style={{ backgroundColor: '#DBEAFE', color: '#1D4ED8' }}>
+                  {activeCount}개월
+                </span>
+              )}
+              {isDirty && (
+                <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold" style={{ backgroundColor: '#FEF9C3', color: '#854D0E' }}>
+                  미저장
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-gray-400 mt-0.5 truncate">{item.item_name}</div>
           </div>
-        );
-      })}
-    </div>
+          <button onClick={handleCancel} className="text-gray-300 hover:text-gray-500 transition ml-2 flex-shrink-0 mt-0.5">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* 월 그리드 */}
+        <div className="p-4">
+          <div className="grid grid-cols-4 gap-2">
+            {MONTH_ORDER.map(month => {
+              const key = String(month);
+              const active = key in local;
+              const date = local[key];
+              return (
+                <div key={month} className="flex flex-col items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => toggle(month)}
+                    className="w-full h-9 rounded-xl text-xs font-bold transition-all"
+                    style={{
+                      backgroundColor: active ? '#2563EB' : '#F1F5F9',
+                      color: active ? 'white' : '#94A3B8',
+                      boxShadow: active ? '0 2px 8px rgba(37,99,235,0.35)' : 'none',
+                    }}
+                  >
+                    {month}월
+                  </button>
+                  <input
+                    type="number"
+                    min="1"
+                    max="31"
+                    disabled={!active}
+                    value={active ? (date || '') : ''}
+                    onChange={e => active && setLocal(prev => ({ ...prev, [key]: e.target.value }))}
+                    placeholder={active ? '일' : '—'}
+                    className="w-full rounded-lg text-center text-xs py-1 border transition focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    style={{
+                      borderColor: active ? '#93C5FD' : '#F1F5F9',
+                      backgroundColor: active ? '#F8FAFF' : '#F9FAFB',
+                      color: active ? '#1D4ED8' : '#CBD5E1',
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 하단 버튼 */}
+        <div className="px-4 pb-4 flex gap-2">
+          <button
+            onClick={handleSave}
+            disabled={saving || !isDirty}
+            className="flex-1 py-2 rounded-xl text-xs font-semibold text-white transition"
+            style={{
+              backgroundColor: isDirty ? '#003DA5' : '#CBD5E1',
+              cursor: isDirty ? 'pointer' : 'not-allowed',
+            }}
+          >
+            {saving ? '저장 중...' : '저장'}
+          </button>
+          <button
+            onClick={handleCancel}
+            className="flex-1 py-2 rounded-xl text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+          >
+            취소
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -175,10 +254,11 @@ function MaintenanceModal({ item, onClose, onSaved }) {
     try {
       if (item) {
         await updateMaintenance(item.id, payload);
+        onSaved('유지보수 항목이 수정되었습니다.');
       } else {
         await createMaintenance(payload);
+        onSaved('유지보수 항목이 추가되었습니다.');
       }
-      onSaved();
       onClose();
     } catch (e) {
       alert(e.response?.data?.detail || '저장 중 오류가 발생했습니다.');
@@ -197,10 +277,10 @@ function MaintenanceModal({ item, onClose, onSaved }) {
           <h3 className="text-base font-bold" style={{ color: '#003DA5' }}>
             {item ? '유지보수 항목 수정' : '유지보수 항목 추가'}
           </h3>
+          {!item && <p className="text-xs text-gray-400 mt-0.5">점검 일정은 항목 추가 후 표에서 직접 설정할 수 있습니다.</p>}
         </div>
         <div className="overflow-y-auto px-6 py-4 flex-1">
           <div className="grid grid-cols-2 gap-4">
-
             <div>
               <label className={labelCls}>사이트</label>
               <select name="site" value={form.site || ''} onChange={handleChange} className={inputCls}>
@@ -261,7 +341,6 @@ function MaintenanceModal({ item, onClose, onSaved }) {
               <label className={labelCls}>비고</label>
               <textarea name="notes" value={form.notes || ''} onChange={handleChange} className={inputCls} rows={2} style={{ resize: 'none' }} />
             </div>
-
           </div>
         </div>
         <div className="px-6 py-4 border-t border-gray-100 flex gap-3 flex-shrink-0">
@@ -278,6 +357,26 @@ function MaintenanceModal({ item, onClose, onSaved }) {
   );
 }
 
+function PageToast({ toast }) {
+  if (!toast) return null;
+  return (
+    <div className="fixed z-[9999] flex items-center gap-3 px-5 py-3 rounded-2xl text-white text-sm font-medium"
+      style={{
+        bottom: '24px', right: '24px',
+        backgroundColor: toast.type === 'error' ? '#C62828' : '#003DA5',
+        minWidth: '240px', maxWidth: '400px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+        animation: 'slideInRight 0.3s cubic-bezier(0.16,1,0.3,1)',
+      }}>
+      <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+        style={{ backgroundColor: toast.type === 'error' ? '#FF8A80' : '#4ADE80', color: 'white' }}>
+        {toast.type === 'error' ? '!' : '✓'}
+      </div>
+      <span className="font-medium">{toast.message}</span>
+    </div>
+  );
+}
+
 export default function MaintenancePage() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
@@ -288,6 +387,13 @@ export default function MaintenancePage() {
   const [editItem, setEditItem] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [schedulePopup, setSchedulePopup] = useState(null);
+  const [pageToast, setPageToast] = useState(null);
+
+  const showToast = useCallback((message, type = 'success') => {
+    setPageToast({ message, type });
+    setTimeout(() => setPageToast(null), 3000);
+  }, []);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -299,8 +405,30 @@ export default function MaintenancePage() {
   const handleScheduleUpdate = async (itemId, scheduleJson) => {
     const item = items.find(i => i.id === itemId);
     if (!item) return;
-    await updateMaintenance(itemId, { ...item, inspection_schedule: scheduleJson });
+    const payload = {
+      site: item.site ?? null,
+      category: item.category ?? null,
+      item_name: item.item_name,
+      system_name: item.system_name ?? null,
+      contract_start: item.contract_start ?? null,
+      contract_end: item.contract_end ?? null,
+      months: item.months ?? null,
+      quantity: item.quantity ?? null,
+      inspection_count: item.inspection_count != null ? String(item.inspection_count) : null,
+      company: item.company ?? null,
+      manager_name: item.manager_name ?? null,
+      manager_phone: item.manager_phone ?? null,
+      inspection_schedule: scheduleJson,
+      notes: item.notes ?? null,
+    };
+    await updateMaintenance(itemId, payload);
     setItems(prev => prev.map(i => i.id === itemId ? { ...i, inspection_schedule: scheduleJson } : i));
+    showToast('점검 일정이 저장되었습니다.');
+  };
+
+  const openSchedulePopup = (e, item) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setSchedulePopup({ item, anchorRect: rect });
   };
 
   const filtered = items.filter(item => {
@@ -322,6 +450,7 @@ export default function MaintenancePage() {
     await deleteMaintenance(deleteTarget.id);
     setDeleteTarget(null);
     load();
+    showToast('항목이 삭제되었습니다.');
   };
 
   if (loading) {
@@ -435,7 +564,7 @@ export default function MaintenancePage() {
                     </td>
                     <td className="px-3 py-3 text-xs text-gray-600 text-center">{item.months ?? '-'}</td>
                     <td className="px-3 py-3 text-xs text-gray-600 text-center">{item.quantity ?? '-'}</td>
-                    <td className="px-3 py-3 text-xs text-gray-600 text-center">{item.inspection_count ?? '-'}</td>
+                    <td className="px-3 py-3 text-xs text-gray-600 text-center">{item.inspection_count || '-'}</td>
                     <td className="px-3 py-3 text-xs text-gray-600 whitespace-nowrap max-w-[120px] truncate">{item.company || '-'}</td>
                     <td className="px-3 py-3 whitespace-nowrap">
                       {item.manager_name || item.manager_phone ? (
@@ -447,10 +576,19 @@ export default function MaintenancePage() {
                     </td>
                     <td className="px-3 py-3">
                       {isAdmin ? (
-                        <InlineSchedule
-                          schedule={item.inspection_schedule}
-                          onSave={(scheduleJson) => handleScheduleUpdate(item.id, scheduleJson)}
-                        />
+                        <button
+                          onClick={(e) => openSchedulePopup(e, item)}
+                          className="flex items-center gap-1.5 group hover:opacity-80 transition"
+                        >
+                          <ScheduleDots schedule={item.inspection_schedule} />
+                          <svg
+                            width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round"
+                            className="opacity-0 group-hover:opacity-100 transition flex-shrink-0"
+                          >
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
+                        </button>
                       ) : (
                         <ScheduleDots schedule={item.inspection_schedule} />
                       )}
@@ -476,7 +614,7 @@ export default function MaintenancePage() {
         <MaintenanceModal
           item={editItem}
           onClose={() => { setShowModal(false); setEditItem(null); }}
-          onSaved={load}
+          onSaved={(msg) => { load(); showToast(msg); }}
         />
       )}
 
@@ -487,6 +625,17 @@ export default function MaintenancePage() {
           onCancel={() => setDeleteTarget(null)}
         />
       )}
+
+      {schedulePopup && (
+        <SchedulePopup
+          item={schedulePopup.item}
+          anchorRect={schedulePopup.anchorRect}
+          onSave={handleScheduleUpdate}
+          onClose={() => setSchedulePopup(null)}
+        />
+      )}
+
+      <PageToast toast={pageToast} />
     </div>
   );
 }

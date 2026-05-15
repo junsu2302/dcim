@@ -4,6 +4,8 @@ from pydantic import BaseModel
 from typing import Optional
 from .. import models
 from ..database import get_db
+from ..models import User
+from .dependencies import get_current_user, require_admin
 
 router = APIRouter(prefix="/racks", tags=["racks"])
 
@@ -26,17 +28,15 @@ class RackResponse(BaseModel):
     class Config:
         from_attributes = True
 
-# 전체 랙 조회
 @router.get("/", response_model=list[RackResponse])
-def get_racks(site: Optional[str] = None, db: Session = Depends(get_db)):
+def get_racks(site: Optional[str] = None, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     query = db.query(models.Rack)
     if site:
         query = query.filter(models.Rack.site == site)
     return query.all()
 
-# 랙 추가
 @router.post("/")
-def create_rack(rack: RackCreate, db: Session = Depends(get_db)):
+def create_rack(rack: RackCreate, db: Session = Depends(get_db), _: User = Depends(require_admin)):
     db_rack = models.Rack(
         rack_number=rack.rack_number,
         site=rack.site,
@@ -47,9 +47,8 @@ def create_rack(rack: RackCreate, db: Session = Depends(get_db)):
     db.refresh(db_rack)
     return db_rack
 
-# 랙 수정
 @router.put("/{rack_id}")
-def update_rack(rack_id: int, rack: RackUpdate, db: Session = Depends(get_db)):
+def update_rack(rack_id: int, rack: RackUpdate, db: Session = Depends(get_db), _: User = Depends(require_admin)):
     db_rack = db.query(models.Rack).filter(models.Rack.id == rack_id).first()
     if not db_rack:
         raise HTTPException(status_code=404, detail="랙을 찾을 수 없습니다")
@@ -59,9 +58,8 @@ def update_rack(rack_id: int, rack: RackUpdate, db: Session = Depends(get_db)):
     db.refresh(db_rack)
     return db_rack
 
-# 랙 삭제
 @router.delete("/{rack_id}")
-def delete_rack(rack_id: int, db: Session = Depends(get_db)):
+def delete_rack(rack_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
     db_rack = db.query(models.Rack).filter(models.Rack.id == rack_id).first()
     if not db_rack:
         raise HTTPException(status_code=404, detail="랙을 찾을 수 없습니다")

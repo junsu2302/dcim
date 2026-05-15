@@ -570,7 +570,7 @@ rackDevices.forEach(d => {
                   <table className="w-full text-sm">
                     <thead>
                       <tr style={{ backgroundColor: '#003DA5' }}>
-                        {['구분', '장비명', '제조사', '시리얼', 'U위치', 'U사이즈', '도입일', '유지보수 업체', '사이트', '랙번호', '첨부문서'].map(h => (
+                        {['구분', '장비명', '제조사', '시리얼', '랙번호', 'U위치', 'U사이즈', '도입일', '유지보수 업체', '사이트', '첨부문서'].map(h => (
                           <th key={h} className="px-4 py-3 text-left text-white font-medium text-xs">{h}</th>
                         ))}
                       </tr>
@@ -616,6 +616,7 @@ rackDevices.forEach(d => {
                             </td>
                             <td className="px-4 py-3 text-gray-600 text-xs">{device.manufacturer}</td>
                             <td className="px-4 py-3 text-gray-500 font-mono text-xs">{device.serial}</td>
+                            <td className="px-4 py-3 text-gray-600 text-xs">RACK #{device.rack_id}</td>
                             <td className="px-4 py-3 text-gray-600 text-xs">{device.u_position}U</td>
                             <td className="px-4 py-3 text-gray-600 text-xs">{device.u_size}U</td>
                             <td className="px-4 py-3 text-gray-600 text-xs">{device.introduced_date}</td>
@@ -626,7 +627,6 @@ rackDevices.forEach(d => {
                                 {device.site}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-gray-600 text-xs">RACK #{device.rack_id}</td>
                             <td className="px-4 py-3 text-xs">
                               {docs.length === 0 ? (
                                 <span className="text-gray-300">-</span>

@@ -6,7 +6,17 @@
       "Bash(ipconfig)",
       "Bash(pip install *)",
       "Bash(ls -la /c/dcim/backend/)",
-      "Read(//c/dcim/backend//**)"
+      "Read(//c/dcim/backend//**)",
+      "Bash(pip show *)",
+      "Bash(python -c \"from app.main import app\")",
+      "Bash(python -c ' *)",
+      "Bash(netstat -ano)",
+      "Bash(/c/dcim/venv/Scripts/python.exe -c \"from app.main import app; print\\('OK'\\)\")",
+      "Bash(./venv/Scripts/python -c \"from app.main import app; print\\('OK'\\)\")",
+      "Bash(./venv/Scripts/pip install *)",
+      "Bash(./venv/Scripts/python -c \"import dotenv; print\\(dotenv.__file__\\)\")",
+      "Bash(tasklist)",
+      "Bash(curl -s http://127.0.0.1:8000/)"
     ]
   }
 }

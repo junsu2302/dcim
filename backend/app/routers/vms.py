@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
 from ..database import get_db
-from ..models import VM
+from ..models import VM, User
+from .dependencies import get_current_user, require_admin
 
 router = APIRouter(prefix="/vms", tags=["vms"])
 
@@ -18,12 +19,12 @@ class VMCreate(BaseModel):
     ram_gb: Optional[str] = None
 
 @router.get("/counts")
-def get_vm_counts(db: Session = Depends(get_db)):
+def get_vm_counts(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     results = db.query(VM.device_id, func.count(VM.id).label('count')).group_by(VM.device_id).all()
     return {r.device_id: r.count for r in results}
 
 @router.get("/device/{device_id}")
-def get_vms(device_id: int, db: Session = Depends(get_db)):
+def get_vms(device_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     vms = db.query(VM).filter(VM.device_id == device_id).all()
     return [
         {
@@ -42,7 +43,7 @@ def get_vms(device_id: int, db: Session = Depends(get_db)):
     ]
 
 @router.post("/device/{device_id}")
-def create_vm(device_id: int, vm: VMCreate, db: Session = Depends(get_db)):
+def create_vm(device_id: int, vm: VMCreate, db: Session = Depends(get_db), _: User = Depends(require_admin)):
     new_vm = VM(
         device_id=device_id,
         name=vm.name,
@@ -59,7 +60,7 @@ def create_vm(device_id: int, vm: VMCreate, db: Session = Depends(get_db)):
     return {"ok": True, "id": new_vm.id}
 
 @router.put("/{vm_id}")
-def update_vm(vm_id: int, vm: VMCreate, db: Session = Depends(get_db)):
+def update_vm(vm_id: int, vm: VMCreate, db: Session = Depends(get_db), _: User = Depends(require_admin)):
     db_vm = db.query(VM).filter(VM.id == vm_id).first()
     if not db_vm:
         raise HTTPException(status_code=404, detail="VM을 찾을 수 없습니다.")
@@ -74,7 +75,7 @@ def update_vm(vm_id: int, vm: VMCreate, db: Session = Depends(get_db)):
     return {"ok": True}
 
 @router.delete("/{vm_id}")
-def delete_vm(vm_id: int, db: Session = Depends(get_db)):
+def delete_vm(vm_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
     db_vm = db.query(VM).filter(VM.id == vm_id).first()
     if not db_vm:
         raise HTTPException(status_code=404, detail="VM을 찾을 수 없습니다.")

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { getDevices } from '../api/devices';
 import { getRacks, createRack, updateRack, deleteRack } from '../api/racks';
 import RackView from '../components/RackView';
@@ -22,14 +22,13 @@ function RackPage() {
   const [snapshotName, setSnapshotName] = useState('');
   const [lastSnapshotName, setLastSnapshotName] = useState('');
   const [confirmStep, setConfirmStep] = useState(false);
-  const [saveToast, setSaveToast] = useState(null);
+  const [pageToast, setPageToast] = useState(null);
   const { user } = useAuth();
 
-  useEffect(() => {
-    if (!saveToast) return;
-    const t = setTimeout(() => setSaveToast(null), 3000);
-    return () => clearTimeout(t);
-  }, [saveToast]);
+  const showPageToast = useCallback((message, type = 'success') => {
+    setPageToast({ message, type });
+    setTimeout(() => setPageToast(null), 3000);
+  }, []);
   const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
@@ -54,6 +53,7 @@ function RackPage() {
     await createRack({ rack_number: nextNumber, site: addRackTargetSite, total_u: parseInt(newRackTotalU) });
     setShowAddRack(false);
     fetchAll();
+    showPageToast(`${addRackTargetSite} 랙이 추가되었습니다.`);
   };
 
   const handleDeleteRack = async (rack) => {
@@ -62,6 +62,7 @@ function RackPage() {
     if (window.confirm(`[${rack.site}] RACK #${rack.rack_number}을 삭제하시겠습니까?`)) {
       await deleteRack(rack.id);
       fetchAll();
+      showPageToast(`RACK #${rack.rack_number}이 삭제되었습니다.`);
     }
   };
 
@@ -71,7 +72,7 @@ function RackPage() {
     const newTotalU = parseInt(editForm.total_u);
     const devicesInRack = devices.filter(d => d.rack_id === rack.id);
     const outOfRange = devicesInRack.filter(d => (d.u_position + (d.u_size || 1) - 1) > newTotalU);
-    
+
     if (outOfRange.length > 0) {
       const names = outOfRange.map(d => `${d.name} (${d.u_position}U~${d.u_position + (d.u_size||1) - 1}U)`).join(', ');
       setEditError(`${newTotalU}U로 줄일 수 없습니다. 범위를 벗어나는 장비가 있습니다: ${names}`);
@@ -81,6 +82,7 @@ function RackPage() {
     await updateRack(rack.id, { rack_number: number, site: editForm.site, total_u: newTotalU });
     setEditingRack(null);
     fetchAll();
+    showPageToast('랙 정보가 수정되었습니다.');
   };
 
   const filteredRacks = selectedSite === '전체'
@@ -186,7 +188,7 @@ function RackPage() {
                       setShowSnapshotModal(false);
                       setSnapshotName('');
                       setConfirmStep(false);
-                      setSaveToast(name);
+                      showPageToast(`스냅샷 "${name}"이(가) 저장되었습니다.`);
                     }}
                     className="flex-1 text-white py-2.5 rounded-xl text-sm font-semibold transition hover:opacity-90"
                     style={{ backgroundColor: '#003DA5' }}
@@ -201,16 +203,15 @@ function RackPage() {
           </div>
         </div>
       )}
-      {/* 저장 완료 토스트 */}
-      {saveToast && (
-        <div className="fixed z-50 flex items-center gap-3 px-5 py-3 rounded-2xl text-white text-sm font-medium anim-slide-in-right"
-          style={{ bottom: '24px', right: '24px', backgroundColor: '#003DA5', minWidth: '280px', maxWidth: '360px', boxShadow: '0 8px 32px rgba(0,61,165,0.35)' }}>
+      {/* 페이지 레벨 토스트 */}
+      {pageToast && (
+        <div className="fixed z-[9999] flex items-center gap-3 px-5 py-3 rounded-2xl text-white text-sm font-medium anim-slide-in-right"
+          style={{ bottom: '24px', right: '24px', backgroundColor: pageToast.type === 'error' ? '#C62828' : '#003DA5', minWidth: '240px', maxWidth: '400px', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
           <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-            style={{ backgroundColor: '#4ADE80', color: 'white' }}>✓</div>
-          <div className="flex flex-col min-w-0">
-            <span className="font-semibold">스냅샷이 저장되었습니다.</span>
-            <span className="text-xs font-normal truncate" style={{ opacity: 0.7 }}>{saveToast}</span>
+            style={{ backgroundColor: pageToast.type === 'error' ? '#FF8A80' : '#4ADE80', color: 'white' }}>
+            {pageToast.type === 'error' ? '!' : '✓'}
           </div>
+          <span className="font-medium">{pageToast.message}</span>
         </div>
       )}
       {/* 랙 추가 모달 */}
@@ -379,7 +380,7 @@ function RackPage() {
                                 className="text-xs text-gray-400 hover:text-red-500 transition flex items-center gap-1">🗑️ 삭제</button>
                             </div>
                           )}
-                        <RackView key={`${rack.id}-${renderKey}`} rack={rack} devices={devices} allRacks={racks} allDevices={devices} onRefresh={fetchAll} />
+                        <RackView key={`${rack.id}-${renderKey}`} rack={rack} devices={devices} allRacks={racks} allDevices={devices} onRefresh={fetchAll} onDeviceSaved={showPageToast} />
                       </div>
                     ))}
                   </div>

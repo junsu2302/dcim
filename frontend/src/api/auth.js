@@ -1,17 +1,16 @@
-import axios from 'axios';
-const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
+import client from './client';
 
 export const login = (username, password) =>
-  axios.post(`${API_URL}/auth/login`, { username, password });
+  client.post('/auth/login', { username, password });
 
-export const getUsers = (token) =>
-  axios.get(`${API_URL}/users/`, { headers: { Authorization: `Bearer ${token}` } });
+export const logout = () => client.post('/auth/logout');
 
-export const createUser = (token, data) =>
-  axios.post(`${API_URL}/users/`, data, { headers: { Authorization: `Bearer ${token}` } });
+export const changePassword = (old_password, new_password) =>
+  client.put('/auth/change-password', { old_password, new_password });
 
-export const updateUser = (token, id, data) =>
-  axios.put(`${API_URL}/users/${id}`, data, { headers: { Authorization: `Bearer ${token}` } });
+export const getLoginHistory = () => client.get('/auth/login-history');
 
-export const deleteUser = (token, id) =>
-  axios.delete(`${API_URL}/users/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+export const getUsers = () => client.get('/users/');
+export const createUser = (data) => client.post('/users/', data);
+export const updateUser = (id, data) => client.put(`/users/${id}`, data);
+export const deleteUser = (id) => client.delete(`/users/${id}`);

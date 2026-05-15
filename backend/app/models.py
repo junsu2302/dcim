@@ -2,6 +2,24 @@ from sqlalchemy import Column, Integer, String, DateTime, Text
 from datetime import datetime
 from .database import Base
 
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=False)
+    session_token = Column(String(64), unique=True, nullable=False)
+    ip_address = Column(String(64), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False)
+
+class LoginHistory(Base):
+    __tablename__ = "login_history"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(64), nullable=False)
+    ip_address = Column(String(64), nullable=True)
+    status = Column(String(16), nullable=False)   # success / failed / locked
+    fail_reason = Column(String(64), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 class Rack(Base):
     __tablename__ = "racks"
 

@@ -1,8 +1,7 @@
-import axios from 'axios';
-const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
+import client from './client';
 
-export const getVMs = (deviceId) => axios.get(`${API_URL}/vms/device/${deviceId}`);
-export const getVmCounts = () => axios.get(`${API_URL}/vms/counts`);
-export const createVM = (deviceId, data) => axios.post(`${API_URL}/vms/device/${deviceId}`, data);
-export const updateVM = (vmId, data) => axios.put(`${API_URL}/vms/${vmId}`, data);
-export const deleteVM = (vmId) => axios.delete(`${API_URL}/vms/${vmId}`);
+export const getVMs = (deviceId) => client.get(`/vms/device/${deviceId}`);
+export const getVmCounts = () => client.get('/vms/counts');
+export const createVM = (deviceId, data) => client.post(`/vms/device/${deviceId}`, data);
+export const updateVM = (vmId, data) => client.put(`/vms/${vmId}`, data);
+export const deleteVM = (vmId) => client.delete(`/vms/${vmId}`);

@@ -4,7 +4,8 @@ from pydantic import BaseModel
 from typing import Optional
 from .. import models
 from ..database import get_db
-from ..models import DeviceHistory
+from ..models import DeviceHistory, User
+from .dependencies import get_current_user, require_admin
 import json
 from datetime import datetime
 
@@ -25,9 +26,8 @@ class DeviceCreate(BaseModel):
     product_name: Optional[str] = None
     ip_address: Optional[str] = None
 
-# IP 중복 확인
 @router.get("/check-ip")
-def check_ip(ip: str, exclude_id: Optional[int] = None, db: Session = Depends(get_db)):
+def check_ip(ip: str, exclude_id: Optional[int] = None, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     query = db.query(models.Device).filter(models.Device.ip_address == ip)
     if exclude_id:
         query = query.filter(models.Device.id != exclude_id)
@@ -36,22 +36,19 @@ def check_ip(ip: str, exclude_id: Optional[int] = None, db: Session = Depends(ge
         return {"duplicate": True, "device_name": existing.name, "device_id": existing.id}
     return {"duplicate": False}
 
-# 장비 전체 조회
 @router.get("/")
-def get_devices(db: Session = Depends(get_db)):
+def get_devices(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     return db.query(models.Device).all()
 
-# 장비 단건 조회
 @router.get("/{device_id}")
-def get_device(device_id: int, db: Session = Depends(get_db)):
+def get_device(device_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     device = db.query(models.Device).filter(models.Device.id == device_id).first()
     if not device:
         raise HTTPException(status_code=404, detail="장비를 찾을 수 없습니다")
     return device
 
-# 장비 추가
 @router.post("/")
-def create_device(device: DeviceCreate, changed_by: Optional[str] = None, db: Session = Depends(get_db)):
+def create_device(device: DeviceCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     if device.serial:
         existing = db.query(models.Device).filter(models.Device.serial == device.serial).first()
         if existing:
@@ -71,15 +68,14 @@ def create_device(device: DeviceCreate, changed_by: Optional[str] = None, db: Se
         change_type='create',
         snapshot=json.dumps(device.dict(), ensure_ascii=False),
         changed_at=datetime.utcnow(),
-        changed_by=changed_by or 'system',
+        changed_by=current_user.username,
     )
     db.add(history)
     db.commit()
     return db_device
 
-# 장비 수정
 @router.put("/{device_id}")
-def update_device(device_id: int, device: DeviceCreate, changed_by: Optional[str] = None, db: Session = Depends(get_db)):
+def update_device(device_id: int, device: DeviceCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     db_device = db.query(models.Device).filter(models.Device.id == device_id).first()
     if not db_device:
         raise HTTPException(status_code=404, detail="장비를 찾을 수 없습니다")
@@ -90,7 +86,7 @@ def update_device(device_id: int, device: DeviceCreate, changed_by: Optional[str
         change_type='update',
         snapshot=json.dumps(snapshot, ensure_ascii=False, default=str),
         changed_at=datetime.utcnow(),
-        changed_by=changed_by or 'system',
+        changed_by=current_user.username,
     )
     db.add(history)
 
@@ -100,9 +96,8 @@ def update_device(device_id: int, device: DeviceCreate, changed_by: Optional[str
     db.refresh(db_device)
     return db_device
 
-# 장비 삭제
 @router.delete("/{device_id}")
-def delete_device(device_id: int, changed_by: Optional[str] = None, db: Session = Depends(get_db)):
+def delete_device(device_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     db_device = db.query(models.Device).filter(models.Device.id == device_id).first()
     if not db_device:
         raise HTTPException(status_code=404, detail="장비를 찾을 수 없습니다")
@@ -113,7 +108,7 @@ def delete_device(device_id: int, changed_by: Optional[str] = None, db: Session 
         change_type='delete',
         snapshot=json.dumps(snapshot, ensure_ascii=False, default=str),
         changed_at=datetime.utcnow(),
-        changed_by=changed_by or 'system',
+        changed_by=current_user.username,
     )
     db.add(history)
     db.commit()
